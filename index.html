@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TF.js Installation Check</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+</head>
+<body>
+    <h1>TensorFlow.js Status</h1>
+    <p>Open your <strong>Console (F12)</strong> to see the tensor math in action.</p>
+    <div id="output"></div>
+
+    <script>
+        // 1. Create two tensors (1D arrays)
+        const a = tf.tensor1d([1.5, 2.5, 3.5]);
+        const b = tf.tensor1d([0.5, 0.5, 0.5]);
+
+        // 2. Perform element-wise addition
+        const sum = tf.add(a, b);
+
+        // 3. Print results to the console
+        console.log("Tensor A:");
+        a.print();
+        
+        console.log("Tensor B:");
+        b.print();
+
+        console.log("Result (A + B):");
+        sum.print();
+
+        // 4. Update the UI to confirm success
+        document.getElementById('output').innerHTML = `
+            <p style="color: green;">✔ TensorFlow.js version ${tf.version.tfjs} is loaded!</p>
+            <p>Backend used: <strong>${tf.getBackend()}</strong></p>
+        `;
+    </script>
+</body>
+</html>
