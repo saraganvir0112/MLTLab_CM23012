@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neuro-Sketch Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        :root { --bg: #f0f2f5; --primary: #4f46e5; --card: #ffffff; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding-top: 50px; }
+        
+        .workspace { background: var(--card); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; gap: 30px; align-items: flex-start; }
+        
+        canvas { background: #000; border-radius: 12px; cursor: crosshair; box-shadow: inset 0 0 10px rgba(255,255,255,0.1); }
+        
+        .controls { display: flex; flex-direction: column; gap: 15px; width: 200px; }
+        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-main { background: var(--primary); color: white; }
+        .btn-outline { background: #e2e8f0; color: #475569; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        #res-box { text-align: center; margin-top: 20px; padding: 20px; border-top: 2px solid #f1f5f9; }
+        .digit-output { font-size: 4rem; font-weight: 800; color: var(--primary); margin: 0; }
+    </style>
+</head>
+<body>
+
+    <h2 style="margin-bottom: 30px; color: #1e293b;">Handwritten Digit Classifier</h2>
+
+    <div class="workspace">
+        <div>
+            <canvas id="sketchpad" width="280" height="280"></canvas>
+            <p style="font-size: 0.8rem; color: #64748b; margin-top: 10px;">Draw the digit clearly in the center</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-main" onclick="analyze()">Predict Identity</button>
+            <button class="btn btn-outline" onclick="reset()">Reset Pad</button>
+            
+            <div id="res-box">
+                <span style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8;">Result</span>
+                <p id="predictionText" class="digit-output">?</p>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById("sketchpad");
+    const ctx = canvas.getContext("2d");
+    const out = document.getElementById("predictionText");
+    let aiModel;
+
+    // Initialization
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 280, 280);
+    ctx.lineWidth = 18; // Slightly thicker than friend's code
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "white";
+
+    // Drawing Logic
+    let isDrawing = false;
+    const getPos = (e) => ({ x: e.offsetX, y: e.offsetY });
+
+    canvas.addEventListener("mousedown", () => isDrawing = true);
+    canvas.addEventListener("mouseup", () => { isDrawing = false; ctx.beginPath(); });
+    canvas.addEventListener("mousemove", (e) => {
+        if (!isDrawing) return;
+        const { x, y } = getPos(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    });
+
+    // Model Loading
+    (async function setup() {
+        try {
+            aiModel = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mnist/model.json');
+            console.log("Model synced.");
+        } catch(e) { out.innerText = "Err"; }
+    })();
+
+    function reset() {
+        ctx.fillRect(0, 0, 280, 280);
+        out.innerText = "?";
+    }
+
+    async function analyze() {
+        if (!aiModel) return;
+
+        // Capture and transform
+        const tensor = tf.tidy(() => {
+            return tf.browser.fromPixels(canvas, 1)
+                .resizeBilinear([28, 28]) // Bilinear is smoother than Nearest Neighbor
+                .toFloat()
+                .div(255.0)
+                .expandDims(0);
+        });
+
+        const prediction = aiModel.predict(tensor);
+        const finalDigit = prediction.argMax(1).dataSync()[0];
+        
+        out.innerText = finalDigit;
+        tensor.dispose();
+    }
+</script>
+</body>
+</html>
