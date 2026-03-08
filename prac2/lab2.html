@@ -1,146 +1,137 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Digit Vision</title>
+    <title>AI Batch Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
     <style>
-        :root { --primary: #6366f1; --dark: #0f172a; --glass: rgba(255, 255, 255, 0.05); }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--dark); color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; margin: 0; padding-top: 50px; }
+        :root { --accent: #ff007b; --panel-bg: #1a1a1c; }
+        body { background: #000; color: #eee; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 40px; }
         
-        .app-wrapper { background: var(--glass); backdrop-filter: blur(10px); padding: 30px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); display: flex; gap: 30px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        
-        /* Canvas Styling */
-        .draw-area { border: 2px solid var(--primary); border-radius: 16px; overflow: hidden; box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
-        canvas#mainCanvas { background: #000; cursor: crosshair; display: block; }
-        
-        /* Sidebar Styling */
-        .prediction-side { display: flex; flex-direction: column; align-items: center; width: 220px; }
-        .digit-display { font-size: 8rem; font-weight: 800; background: linear-gradient(to bottom, #fff, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; margin: 20px 0; }
-        
-        .meter-container { width: 100%; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-top: 10px; }
-        #accuracyFill { width: 0%; height: 100%; background: var(--primary); transition: width 0.4s ease; }
-        
-        .btn-clear { background: #ef4444; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 25px; width: 100%; transition: 0.3s; }
-        .btn-clear:hover { background: #dc2626; transform: scale(1.05); }
+        .container { max-width: 1000px; margin: auto; }
+        header { border-bottom: 1px solid #333; margin-bottom: 30px; padding-bottom: 10px; }
 
-        #system-log { font-size: 0.75rem; color: #94a3b8; margin-top: 15px; text-align: center; }
-        canvas#preview { border: 1px solid #475569; border-radius: 4px; margin-top: 10px; }
+        /* Gallery Grid */
+        .image-feed { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 30px; 
+        }
+        
+        .image-card { 
+            background: var(--panel-bg); 
+            padding: 10px; 
+            border-radius: 12px; 
+            border: 1px solid #222; 
+            text-align: center;
+        }
+
+        .image-card img { 
+            width: 100%; 
+            border-radius: 8px; 
+            transition: 0.3s;
+        }
+
+        /* Result Labels */
+        .result-badge { 
+            background: var(--accent); 
+            font-size: 0.75rem; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block; 
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .btn-run { 
+            background: white; color: black; border: none; padding: 15px 40px; 
+            border-radius: 50px; font-weight: bold; cursor: pointer; transition: 0.3s;
+        }
+        .btn-run:hover { background: var(--accent); color: white; transform: scale(1.05); }
+        .btn-run:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        .loader { color: var(--accent); font-weight: bold; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <h1 style="margin-bottom: 30px; letter-spacing: -1px;">Digit <span style="color: var(--primary)">Vision</span> AI</h1>
+<div class="container">
+    <header>
+        <h1>Batch <span style="color: var(--accent);">Recognition</span></h1>
+        <p id="status" class="loader">Engine Warming Up...</p>
+    </header>
 
-    <div class="app-wrapper">
-        <div class="draw-area">
-            <canvas id="mainCanvas" width="300" height="300"></canvas>
+    <div class="image-feed" id="gallery">
+        <div class="image-card">
+            <img src="https://storage.googleapis.com/tfjs-models/assets/cat.jpg" crossorigin="anonymous">
+            <div class="result-area">-</div>
         </div>
-
-        <div class="prediction-side">
-            <span style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Result</span>
-            <div id="digitResult" class="digit-display">?</div>
-            
-            <div style="font-size: 0.9rem;">Confidence</div>
-            <div class="meter-container">
-                <div id="accuracyFill"></div>
-            </div>
-            
-            <canvas id="preview" width="28" height="28"></canvas>
-            
-            <button class="btn-clear" onclick="app.clear()">Reset Canvas</button>
-            <div id="system-log">Initializing...</div>
+        <div class="image-card">
+            <img src="https://storage.googleapis.com/tfjs-models/assets/dog.jpg" crossorigin="anonymous">
+            <div class="result-area">-</div>
+        </div>
+        <div class="image-card">
+            <img src="https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=200" crossorigin="anonymous">
+            <div class="result-area">-</div>
+        </div>
+        <div class="image-card">
+            <img src="https://images.unsplash.com/photo-1517849845537-4d257902454a?w=200" crossorigin="anonymous">
+            <div class="result-area">-</div>
+        </div>
+        <div class="image-card">
+            <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200" crossorigin="anonymous">
+            <div class="result-area">-</div>
         </div>
     </div>
 
+    <button id="trigger" class="btn-run" onclick="processBatch()" disabled>Run Batch Analysis</button>
+</div>
+
 <script>
-    class DigitClassifier {
-        constructor() {
-            this.canvas = document.getElementById('mainCanvas');
-            this.ctx = this.canvas.getContext('2d');
-            this.preview = document.getElementById('preview');
-            this.pCtx = this.preview.getContext('2d');
-            this.isDrawing = false;
-            this.model = null;
+    let aiModel;
+
+    // Load MobileNet immediately
+    (async function initSystem() {
+        aiModel = await mobilenet.load();
+        document.getElementById('status').innerText = "AI System Online";
+        document.getElementById('status').style.color = "#00ff88";
+        document.getElementById('trigger').disabled = false;
+    })();
+
+    async function processBatch() {
+        const cards = document.querySelectorAll('.image-card');
+        const status = document.getElementById('status');
+        
+        status.innerText = "Analyzing Feed...";
+        
+        // Loop through each card
+        for (let card of cards) {
+            const imgElement = card.querySelector('img');
+            const resultArea = card.querySelector('.result-area');
             
-            this.setupCanvas();
-            this.loadAI();
-            this.attachEvents();
-        }
-
-        setupCanvas() {
-            this.ctx.fillStyle = "black";
-            this.ctx.fillRect(0, 0, 300, 300);
-            this.ctx.strokeStyle = "white";
-            this.ctx.lineWidth = 18;
-            this.ctx.lineCap = "round";
-            this.ctx.lineJoin = "round";
-        }
-
-        async loadAI() {
+            // Highlight current card
+            card.style.borderColor = "#ff007b";
+            
             try {
-                const url = 'https://storage.googleapis.com/tfjs-models/tfjs/mnist_transfer_cnn_v1/model.json';
-                this.model = await tf.loadLayersModel(url);
-                document.getElementById('system-log').innerText = "Model Active";
-                document.getElementById('system-log').style.color = "#4ade80";
-            } catch (e) {
-                document.getElementById('system-log').innerText = "Load Failed";
+                const predictions = await aiModel.classify(imgElement);
+                const topMatch = predictions[0];
+                
+                resultArea.innerHTML = `
+                    <div class="result-badge">${(topMatch.probability * 100).toFixed(0)}% Match</div>
+                    <div style="margin-top:5px; font-weight:bold">${topMatch.className.split(',')[0]}</div>
+                `;
+            } catch (err) {
+                resultArea.innerText = "Error";
             }
-        }
-
-        async process() {
-            if (!this.model) return;
-
-            // Simple Pre-processing
-            const tensor = tf.tidy(() => {
-                return tf.browser.fromPixels(this.canvas, 1)
-                    .resizeNearestNeighbor([28, 28])
-                    .toFloat()
-                    .div(255.0)
-                    .expandDims(0);
-            });
-
-            // Show what AI sees in preview
-            this.pCtx.drawImage(this.canvas, 0, 0, 300, 300, 0, 0, 28, 28);
-
-            const prediction = await this.model.predict(tensor).data();
-            const result = prediction.indexOf(Math.max(...prediction));
-            const score = Math.max(...prediction) * 100;
-
-            document.getElementById('digitResult').innerText = result;
-            document.getElementById('accuracyFill').style.width = score + "%";
-            tensor.dispose();
-        }
-
-        clear() {
-            this.ctx.fillRect(0, 0, 300, 300);
-            document.getElementById('digitResult').innerText = "?";
-            document.getElementById('accuracyFill').style.width = "0%";
-        }
-
-        attachEvents() {
-            const start = (e) => { this.isDrawing = true; this.ctx.beginPath(); };
-            const stop = () => { if(this.isDrawing) { this.isDrawing = false; this.process(); } };
-            const move = (e) => {
-                if (!this.isDrawing) return;
-                const rect = this.canvas.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const y = (e.clientY || e.touches[0].clientY) - rect.top;
-                this.ctx.lineTo(x, y);
-                this.ctx.stroke();
-            };
-
-            this.canvas.onmousedown = start;
-            this.canvas.onmousemove = move;
-            window.onmouseup = stop;
             
-            this.canvas.ontouchstart = start;
-            this.canvas.ontouchmove = (e) => { e.preventDefault(); move(e); };
-            this.canvas.ontouchend = stop;
+            card.style.borderColor = "#222"; // Reset color
         }
+        
+        status.innerText = "Batch Processed.";
     }
-
-    const app = new DigitClassifier();
 </script>
+
 </body>
 </html>
