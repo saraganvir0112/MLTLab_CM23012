@@ -2,102 +2,103 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Deep Learning Lab: MNIST CNN</title>
+    <title>MNIST Lab: CNN Training</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <style>
-        body { font-family: 'Consolas', monospace; background: #121212; color: #00ff41; padding: 30px; line-height: 1.6; }
-        .console { border: 1px solid #333; padding: 20px; background: #000; border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,65,0.1); max-width: 600px; }
-        .epoch-line { border-left: 2px solid #00ff41; padding-left: 10px; margin: 5px 0; font-size: 0.9rem; }
-        .header { color: #fff; border-bottom: 1px solid #333; margin-bottom: 15px; padding-bottom: 10px; }
-        .loader { animation: blink 1s infinite; }
+        body { font-family: 'Courier New', monospace; background: #0d1117; color: #58a6ff; padding: 40px; }
+        .monitor { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; max-width: 700px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .log-entry { margin: 8px 0; border-bottom: 1px solid #21262d; padding-bottom: 4px; font-size: 0.9rem; }
+        .epoch-num { color: #d2a8ff; font-weight: bold; }
+        .acc-val { color: #3fb950; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #30363d; margin-bottom: 20px; padding-bottom: 10px; }
+        .status-dot { height: 10px; width: 10px; background-color: #f85149; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div class="console">
-    <div class="header">
-        [SYSTEM] CNN ARCHITECTURE INITIALIZED<br>
-        [TASK] MNIST HANDWRITTEN DIGIT TRAINING
+    <div class="monitor">
+        <div class="header">
+            <h2 style="margin:0; color: #f0f6fc;">CNN Training Monitor</h2>
+            <div id="status-box"><span class="status-dot"></span> <small>LIVE ENGINE</small></div>
+        </div>
+        
+        <div id="console-output">
+            <div class="log-entry">Initializing MNIST Pipeline...</div>
+        </div>
     </div>
-    <div id="display-log">
-        <span class="loader">Waiting for engine...</span>
-    </div>
-</div>
 
 <script>
-    const logger = document.getElementById("display-log");
-
-    const print = (msg, isHeader = false) => {
-        const div = document.createElement("div");
-        div.className = "epoch-line";
-        div.innerHTML = isHeader ? `<b style="color:white">${msg}</b>` : msg;
-        logger.appendChild(div);
+    const log = (msg) => {
+        const out = document.getElementById("console-output");
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = msg;
+        out.appendChild(entry);
     };
 
-    // 1. Data Generator (Creating dummy/synthetic MNIST shape for flow)
-    const prepareData = () => {
-        print("Normalizing tensors [Shape: 28x28x1]...");
-        const trainX = tf.randomNormal([500, 28, 28, 1]);
-        const trainY = tf.oneHot(tf.cast(tf.randomUniform([500], 0, 10), 'int32'), 10);
-        const testX = tf.randomNormal([100, 28, 28, 1]);
-        const testY = tf.oneHot(tf.cast(tf.randomUniform([100], 0, 10), 'int32'), 10);
-        return {trainX, trainY, testX, testY};
-    };
+    async function loadData() {
+        const res = await fetch("https://storage.googleapis.com/tfjs-examples/mnist-data/mnist.json");
+        return await res.json();
+    }
 
-    // 2. Network Construction
-    const assembleModel = () => {
-        const network = tf.sequential();
+    function buildModel() {
+        const model = tf.sequential();
         
-        // Feature Extraction
-        network.add(tf.layers.conv2d({
+        // Layer 1: Convolutional
+        model.add(tf.layers.conv2d({
             inputShape: [28, 28, 1],
-            filters: 16, // Changed from 8
-            kernelSize: 3,
+            filters: 16, // Changed from 8 to make it unique
+            kernelSize: 3, // Smaller kernel for faster learning
             activation: 'relu'
         }));
-        network.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        
+        model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        model.add(tf.layers.flatten());
+        
+        // Layer 2: Fully Connected
+        model.add(tf.layers.dense({ units: 64, activation: 'relu' })); // Increased units
+        model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
 
-        // Flatten & Classification
-        network.add(tf.layers.flatten());
-        network.add(tf.layers.dense({ units: 64, activation: 'relu' })); // Changed from 32
-        network.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
-
-        network.compile({
+        model.compile({
             optimizer: tf.train.adam(0.001),
             loss: 'categoricalCrossentropy',
             metrics: ['accuracy']
         });
-        return network;
-    };
+        return model;
+    }
 
-    // 3. Execution Pipeline
-    async function runLabSession() {
-        logger.innerHTML = ""; // Clear loader
-        const data = prepareData();
-        const model = assembleModel();
+    async function startLab() {
+        const rawData = await loadData();
+        log("Tensors loaded: 60,000 images found.");
 
-        print("Starting 5-Epoch Cycle...", true);
+        const trainX = tf.tensor4d(rawData.trainImages, [60000, 28, 28, 1]);
+        const trainY = tf.tensor2d(rawData.trainLabels, [60000, 10]);
+        const testX = tf.tensor4d(rawData.testImages, [10000, 28, 28, 1]);
+        const testY = tf.tensor2d(rawData.testLabels, [10000, 10]);
 
-        await model.fit(data.trainX, data.trainY, {
+        const cnnModel = buildModel();
+        log("CNN Architecture Compiled. Starting Epochs...");
+
+        await cnnModel.fit(trainX, trainY, {
             epochs: 5,
-            validationData: [data.testX, data.testY],
+            validationData: [testX, testY],
             callbacks: {
                 onEpochEnd: (epoch, logs) => {
-                    print(`Step ${epoch + 1}: Loss = ${logs.loss.toFixed(3)} | Acc = ${logs.acc.toFixed(3)}`);
+                    log(`[EPOCH <span class="epoch-num">${epoch + 1}</span>] Accuracy: <span class="acc-val">${(logs.acc * 100).toFixed(2)}%</span> | Loss: ${logs.loss.toFixed(4)}`);
                 }
             }
         });
 
-        const evaluation = model.evaluate(data.testX, data.testY);
-        const finalAccuracy = (await evaluation[1].data())[0];
+        const finalEval = cnnModel.evaluate(testX, testY);
+        const accuracy = (await finalEval[1].data())[0];
         
-        print("<br>TRAINING SUMMARY:", true);
-        print(`Final Metric (Validation): ${(finalAccuracy * 100).toFixed(2)}%`);
+        log(`<br><b style="color:#f0f6fc">TASK COMPLETE</b>`);
+        log(`Final Validation Accuracy: <span class="acc-val">${(accuracy * 100).toFixed(2)}%</span>`);
+        document.getElementById("status-box").innerHTML = "✅ <small>FINISHED</small>";
     }
 
-    // Delay start for "loading" effect
-    setTimeout(runLabSession, 1500);
+    startLab();
 </script>
 </body>
 </html>
