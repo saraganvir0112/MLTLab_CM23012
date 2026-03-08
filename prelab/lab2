@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lab 2 - Vector Operations</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+
+    <h2>Element-wise Vector Operations</h2>
+
+    <button onclick="performOperations()">Run Operations</button>
+
+    <p id="output"></p>
+
+    <script>
+        function performOperations() {
+
+            // Create two vectors
+            const v1 = tf.tensor1d([1, 2, 3]);
+            const v2 = tf.tensor1d([4, 5, 6]);
+
+            // Element-wise addition
+            const addition = v1.add(v2);
+
+            // Element-wise multiplication
+            const multiplication = v1.mul(v2);
+
+            // Print result
+            document.getElementById("output").innerHTML =
+                "Vector 1: " + v1.arraySync() + "<br>" +
+                "Vector 2: " + v2.arraySync() + "<br><br>" +
+                "Element-wise Addition: " + addition.arraySync() + "<br>" +
+                "Element-wise Multiplication: " + multiplication.arraySync();
+        }
+    </script>
+
+</body>
+</html>
