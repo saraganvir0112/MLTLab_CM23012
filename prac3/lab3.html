@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Benchmarking: CNN vs MLP</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 40px; color: #333; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .status { font-style: italic; color: #666; margin-bottom: 10px; }
+        .highlight { font-weight: bold; color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>AI Performance Benchmark</h2>
+    <div id="status" class="status">System initializing...</div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Network Type</th>
+                <th>Final Accuracy</th>
+            </tr>
+        </thead>
+        <tbody id="results-table">
+            </tbody>
+    </table>
+
+    <div id="summary"></div>
+</div>
+
+<script>
+    // 1. Data Loading Component
+    const fetchDataset = async () => {
+        const URL = 'https://storage.googleapis.com/tfjs-examples/mnist-data/mnist.json';
+        const raw = await fetch(URL);
+        return await raw.json();
+    };
+
+    // 2. CNN Architecture (Spatial Feature Extractor)
+    const initCNN = () => {
+        const net = tf.sequential();
+        net.add(tf.layers.conv2d({ inputShape: [28, 28, 1], filters: 12, kernelSize: 3, activation: 'relu' }));
+        net.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        net.add(tf.layers.flatten());
+        net.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+        net.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+        return net;
+    };
+
+    // 3. Dense Architecture (Standard MLP)
+    const initDense = () => {
+        const net = tf.sequential();
+        net.add(tf.layers.flatten({ inputShape: [28, 28, 1] }));
+        net.add(tf.layers.dense({ units: 256, activation: 'relu' }));
+        net.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+        net.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+        return net;
+    };
+
+    const benchmark = async (model, x, y, tx, ty) => {
+        model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+        await model.fit(x, y, { epochs: 3, batchSize: 128, verbose: 0 }); // Reduced epochs for speed
+        const evalScore = model.evaluate(tx, ty);
+        return (await evalScore[1].data())[0];
+    };
+
+    const startExecution = async () => {
+        const statusMsg = document.getElementById("status");
+        try {
+            const data = await fetchDataset();
+            statusMsg.innerText = "Preprocessing tensors...";
+
+            const trainX = tf.tensor4d(data.trainImages, [60000, 28, 28, 1]);
+            const trainY = tf.tensor2d(data.trainLabels, [60000, 10]);
+            const testX = tf.tensor4d(data.testImages, [10000, 28, 28, 1]);
+            const testY = tf.tensor2d(data.testLabels, [10000, 10]);
+
+            statusMsg.innerText = "Training CNN Model...";
+            const accCNN = await benchmark(initCNN(), trainX, trainY, testX, testY);
+
+            statusMsg.innerText = "Training Dense Model...";
+            const accDense = await benchmark(initDense(), trainX, trainY, testX, testY);
+
+            statusMsg.innerText = "Benchmark Complete.";
+            
+            // Render Results
+            const table = document.getElementById("results-table");
+            table.innerHTML = `
+                <tr><td>Convolutional Neural Network (CNN)</td><td><b>${(accCNN * 100).toFixed(2)}%</b></td></tr>
+                <tr><td>Multi-Layer Perceptron (Dense)</td><td><b>${(accDense * 100).toFixed(2)}%</b></td></tr>
+            `;
+
+            document.getElementById("summary").innerHTML = `
+                <p><span class="highlight">Observation:</span> The CNN architecture demonstrates superior spatial awareness, making it more effective for image classification tasks compared to a standard Dense network.</p>
+            `;
+
+        } catch (e) {
+            statusMsg.innerText = "Error: " + e.message;
+        }
+    };
+
+    startExecution();
+</script>
+</body>
+</html>
