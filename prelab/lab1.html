@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tensor Creation Example</title>
+
+  <!-- TensorFlow.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+</head>
+
+<body>
+  <h2>Tensor Creation Example</h2>
+  <p>Open Console (F12) to see output</p>
+
+  <script>
+    // 🔹 Scalar (0D Tensor)
+    const scalar = tf.scalar(10);
+    console.log("Scalar:");
+    scalar.print();
+
+    // 🔹 Vector (1D Tensor)
+    const vector = tf.tensor1d([1, 2, 3, 4, 5]);
+    console.log("Vector:");
+    vector.print();
+
+    // 🔹 Matrix (2D Tensor)
+    const matrix = tf.tensor2d(
+      [
+        [1, 2, 3],
+        [4, 5, 6]
+      ]
+    );
+    console.log("Matrix:");
+    matrix.print();
+
+  </script>
+</body>
+</html>
