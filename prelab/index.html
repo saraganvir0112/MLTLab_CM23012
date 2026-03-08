@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prelab</title>
+
+  <!-- 1. Include TensorFlow.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+</head>
+<body>
+  <h1>Prelab verify TensorFlow.js</h1>
+  <p>Open the developer console to see the output.</p>
+  <p>TensorFlow.js version 4.22.0 is loaded</p>
+  <p>Backend used: webgl</p>
+
+  <!-- 2. TensorFlow.js script -->
+  <script>
+    // Create tensors
+    const a = tf.tensor([1, 2, 3]);
+    const b = tf.tensor([4, 5, 6]);
+
+    // Perform addition
+    const c = tf.add(a, b);
+
+    // Print results to console
+    console.log("Tensor a:");
+    a.print(); // [1, 2, 3]
+
+    console.log("Tensor b:");
+    b.print(); // [4, 5, 6]
+
+    console.log("Tensor c (a + b):");
+    c.print(); // [5, 7, 9]
+  </script>
+  <script>
+  console.log(
+    "%cTensorFlow.js version " + tf.version.tfjs + " is loaded",
+    "color: green; font-weight: bold;"
+  );
+
+  // Create status message
+    const message = "TensorFlow.js version " + tf.version.tfjs + " is loaded";
+
+    // Print to console in green
+    console.log(
+      "%c" + message,
+      "color: green; font-weight: bold;"
+    );
+
+    // Print on the screen in green
+    document.getElementById("tf-status").textContent = message;
+</script>
+</body>
+</html>
