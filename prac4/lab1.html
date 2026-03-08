@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MNIST Lab: CNN Training</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        body { font-family: 'Courier New', monospace; background: #0d1117; color: #58a6ff; padding: 40px; }
+        .monitor { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; max-width: 700px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .log-entry { margin: 8px 0; border-bottom: 1px solid #21262d; padding-bottom: 4px; font-size: 0.9rem; }
+        .epoch-num { color: #d2a8ff; font-weight: bold; }
+        .acc-val { color: #3fb950; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #30363d; margin-bottom: 20px; padding-bottom: 10px; }
+        .status-dot { height: 10px; width: 10px; background-color: #f85149; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="monitor">
+        <div class="header">
+            <h2 style="margin:0; color: #f0f6fc;">CNN Training Monitor</h2>
+            <div id="status-box"><span class="status-dot"></span> <small>LIVE ENGINE</small></div>
+        </div>
+        
+        <div id="console-output">
+            <div class="log-entry">Initializing MNIST Pipeline...</div>
+        </div>
+    </div>
+
+<script>
+    const log = (msg) => {
+        const out = document.getElementById("console-output");
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = msg;
+        out.appendChild(entry);
+    };
+
+    async function loadData() {
+        const res = await fetch("https://storage.googleapis.com/tfjs-examples/mnist-data/mnist.json");
+        return await res.json();
+    }
+
+    function buildModel() {
+        const model = tf.sequential();
+        
+        // Layer 1: Convolutional
+        model.add(tf.layers.conv2d({
+            inputShape: [28, 28, 1],
+            filters: 16, // Changed from 8 to make it unique
+            kernelSize: 3, // Smaller kernel for faster learning
+            activation: 'relu'
+        }));
+        
+        model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        model.add(tf.layers.flatten());
+        
+        // Layer 2: Fully Connected
+        model.add(tf.layers.dense({ units: 64, activation: 'relu' })); // Increased units
+        model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+
+        model.compile({
+            optimizer: tf.train.adam(0.001),
+            loss: 'categoricalCrossentropy',
+            metrics: ['accuracy']
+        });
+        return model;
+    }
+
+    async function startLab() {
+        const rawData = await loadData();
+        log("Tensors loaded: 60,000 images found.");
+
+        const trainX = tf.tensor4d(rawData.trainImages, [60000, 28, 28, 1]);
+        const trainY = tf.tensor2d(rawData.trainLabels, [60000, 10]);
+        const testX = tf.tensor4d(rawData.testImages, [10000, 28, 28, 1]);
+        const testY = tf.tensor2d(rawData.testLabels, [10000, 10]);
+
+        const cnnModel = buildModel();
+        log("CNN Architecture Compiled. Starting Epochs...");
+
+        await cnnModel.fit(trainX, trainY, {
+            epochs: 5,
+            validationData: [testX, testY],
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    log(`[EPOCH <span class="epoch-num">${epoch + 1}</span>] Accuracy: <span class="acc-val">${(logs.acc * 100).toFixed(2)}%</span> | Loss: ${logs.loss.toFixed(4)}`);
+                }
+            }
+        });
+
+        const finalEval = cnnModel.evaluate(testX, testY);
+        const accuracy = (await finalEval[1].data())[0];
+        
+        log(`<br><b style="color:#f0f6fc">TASK COMPLETE</b>`);
+        log(`Final Validation Accuracy: <span class="acc-val">${(accuracy * 100).toFixed(2)}%</span>`);
+        document.getElementById("status-box").innerHTML = "✅ <small>FINISHED</small>";
+    }
+
+    startLab();
+</script>
+</body>
+</html>
