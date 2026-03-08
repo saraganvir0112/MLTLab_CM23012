@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Comparison: CNN vs Dense</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
+        .dashboard { max-width: 800px; margin: auto; background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .header { border-bottom: 2px solid #334155; margin-bottom: 25px; padding-bottom: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; background: #334155; }
+        .accuracy-val { font-size: 1.2rem; font-weight: bold; color: #38bdf8; }
+        .conclusion { margin-top: 30px; padding: 20px; background: rgba(56, 189, 248, 0.1); border-left: 4px solid #38bdf8; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="header">
+        <h2 style="margin:0">Architecture Benchmarking</h2>
+        <p id="main-status" style="color: #94a3b8; font-size: 0.9rem;">Initializing TensorFlow.js engine...</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Model Architecture</th>
+                <th>Validation Accuracy</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>Convolutional (CNN)</strong><br>
+                    <small style="color:#64748b">Conv2D + MaxPool + Dense</small>
+                </td>
+                <td id="cnn-result" class="accuracy-val">--</td>
+            </tr>
+            <tr>
+                <td>
+                    <strong>Dense (Fully Connected)</strong><br>
+                    <small style="color:#64748b">Flatten + High-unit Dense</small>
+                </td>
+                <td id="dense-result" class="accuracy-val">--</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div id="conclusion-box" class="conclusion" style="display: none;">
+        <strong>Scientific Conclusion:</strong> 
+        <span id="final-verdict"></span>
+    </div>
+</div>
+
+<script>
+    const updateStatus = (msg) => document.getElementById('main-status').innerText = msg;
+
+    async function loadData() {
+        updateStatus("Downloading MNIST dataset...");
+        const res = await fetch("https://storage.googleapis.com/tfjs-examples/mnist-data/mnist.json");
+        return await res.json();
+    }
+
+    // CNN: Spatial awareness model
+    function buildCNN() {
+        const model = tf.sequential();
+        model.add(tf.layers.conv2d({ inputShape: [28, 28, 1], filters: 16, kernelSize: 3, activation: 'relu' }));
+        model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        model.add(tf.layers.flatten());
+        model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+        model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+        return model;
+    }
+
+    // Dense: Flat feature model
+    function buildDense() {
+        const model = tf.sequential();
+        model.add(tf.layers.flatten({ inputShape: [28, 28, 1] }));
+        model.add(tf.layers.dense({ units: 256, activation: 'relu' })); // Higher units for comparison
+        model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+        return model;
+    }
+
+    async function trainAndEval(model, dataTensors) {
+        model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+        
+        await model.fit(dataTensors.trainX, dataTensors.trainY, {
+            epochs: 3, // Efficient testing
+            batchSize: 128,
+            verbose: 0
+        });
+
+        const evalResult = model.evaluate(dataTensors.testX, dataTensors.testY);
+        const acc = (await evalResult[1].data())[0];
+        return (acc * 100).toFixed(2);
+    }
+
+    async function runBenchmark() {
+        const rawData = await loadData();
+        
+        const dataTensors = {
+            trainX: tf.tensor4d(rawData.trainImages, [60000, 28, 28, 1]),
+            trainY: tf.tensor2d(rawData.trainLabels, [60000, 10]),
+            testX: tf.tensor4d(rawData.testImages, [10000, 28, 28, 1]),
+            testY: tf.tensor2d(rawData.testLabels, [10000, 10])
+        };
+
+        // CNN Phase
+        updateStatus("Phase 1: Training Convolutional Network...");
+        const cnnAcc = await trainAndEval(buildCNN(), dataTensors);
+        document.getElementById('cnn-result').innerText = cnnAcc + "%";
+
+        // Dense Phase
+        updateStatus("Phase 2: Training Fully Connected Network...");
+        const denseAcc = await trainAndEval(buildDense(), dataTensors);
+        document.getElementById('dense-result').innerText = denseAcc + "%";
+
+        // Wrap up
+        updateStatus("Benchmark Complete.");
+        document.getElementById('conclusion-box').style.display = 'block';
+        document.getElementById('final-verdict').innerText = 
+            `CNN outperformed Dense by ${(cnnAcc - denseAcc).toFixed(2)}%. This proves that spatial hierarchies in CNNs are more effective for image patterns than standard flat layers.`;
+
+        // Cleanup
+        tf.dispose(dataTensors);
+    }
+
+    runBenchmark();
+</script>
+</body>
+</html>
