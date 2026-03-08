@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Deep Learning Lab: MNIST CNN</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        body { font-family: 'Consolas', monospace; background: #121212; color: #00ff41; padding: 30px; line-height: 1.6; }
+        .console { border: 1px solid #333; padding: 20px; background: #000; border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,65,0.1); max-width: 600px; }
+        .epoch-line { border-left: 2px solid #00ff41; padding-left: 10px; margin: 5px 0; font-size: 0.9rem; }
+        .header { color: #fff; border-bottom: 1px solid #333; margin-bottom: 15px; padding-bottom: 10px; }
+        .loader { animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="console">
+    <div class="header">
+        [SYSTEM] CNN ARCHITECTURE INITIALIZED<br>
+        [TASK] MNIST HANDWRITTEN DIGIT TRAINING
+    </div>
+    <div id="display-log">
+        <span class="loader">Waiting for engine...</span>
+    </div>
+</div>
+
+<script>
+    const logger = document.getElementById("display-log");
+
+    const print = (msg, isHeader = false) => {
+        const div = document.createElement("div");
+        div.className = "epoch-line";
+        div.innerHTML = isHeader ? `<b style="color:white">${msg}</b>` : msg;
+        logger.appendChild(div);
+    };
+
+    // 1. Data Generator (Creating dummy/synthetic MNIST shape for flow)
+    const prepareData = () => {
+        print("Normalizing tensors [Shape: 28x28x1]...");
+        const trainX = tf.randomNormal([500, 28, 28, 1]);
+        const trainY = tf.oneHot(tf.cast(tf.randomUniform([500], 0, 10), 'int32'), 10);
+        const testX = tf.randomNormal([100, 28, 28, 1]);
+        const testY = tf.oneHot(tf.cast(tf.randomUniform([100], 0, 10), 'int32'), 10);
+        return {trainX, trainY, testX, testY};
+    };
+
+    // 2. Network Construction
+    const assembleModel = () => {
+        const network = tf.sequential();
+        
+        // Feature Extraction
+        network.add(tf.layers.conv2d({
+            inputShape: [28, 28, 1],
+            filters: 16, // Changed from 8
+            kernelSize: 3,
+            activation: 'relu'
+        }));
+        network.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+
+        // Flatten & Classification
+        network.add(tf.layers.flatten());
+        network.add(tf.layers.dense({ units: 64, activation: 'relu' })); // Changed from 32
+        network.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+
+        network.compile({
+            optimizer: tf.train.adam(0.001),
+            loss: 'categoricalCrossentropy',
+            metrics: ['accuracy']
+        });
+        return network;
+    };
+
+    // 3. Execution Pipeline
+    async function runLabSession() {
+        logger.innerHTML = ""; // Clear loader
+        const data = prepareData();
+        const model = assembleModel();
+
+        print("Starting 5-Epoch Cycle...", true);
+
+        await model.fit(data.trainX, data.trainY, {
+            epochs: 5,
+            validationData: [data.testX, data.testY],
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    print(`Step ${epoch + 1}: Loss = ${logs.loss.toFixed(3)} | Acc = ${logs.acc.toFixed(3)}`);
+                }
+            }
+        });
+
+        const evaluation = model.evaluate(data.testX, data.testY);
+        const finalAccuracy = (await evaluation[1].data())[0];
+        
+        print("<br>TRAINING SUMMARY:", true);
+        print(`Final Metric (Validation): ${(finalAccuracy * 100).toFixed(2)}%`);
+    }
+
+    // Delay start for "loading" effect
+    setTimeout(runLabSession, 1500);
+</script>
+</body>
+</html>
