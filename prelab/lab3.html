@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lab 3 - Reshape vs Flatten</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+
+    <h2>Tensor Reshape and Flatten Demo</h2>
+    <button onclick="runDemo()">Run Demo</button>
+
+    <p id="output"></p>
+
+    <script>
+        function runDemo() {
+
+            // Create 1D tensor
+            const tensor1 = tf.tensor1d([1, 2, 3, 4]);
+
+            // Reshape into 2x2 matrix
+            const reshaped = tensor1.reshape([2, 2]);
+
+            // Flatten back to 1D
+            const flattened = reshaped.flatten();
+
+            document.getElementById("output").innerHTML =
+                "Original Tensor (1D): " + tensor1.arraySync() + "<br><br>" +
+                "Reshaped Tensor (2x2): " + JSON.stringify(reshaped.arraySync()) + "<br><br>" +
+                "Flattened Tensor: " + flattened.arraySync();
+        }
+    </script>
+
+</body>
+</html>
