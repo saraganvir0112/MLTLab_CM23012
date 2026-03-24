@@ -2,99 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Vision: Real-Time Scanner</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Object Detector (Bounding Boxes)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        :root { --neon-green: #00ff88; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-        
-        .vision-container { position: relative; border-radius: 20px; overflow: hidden; border: 2px solid #333; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
-        
-        #webcam { transform: scaleX(-1); width: 100%; max-width: 640px; display: block; }
-        
-        .overlay { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 12px; border-left: 4px solid var(--neon-green); pointer-events: none; backdrop-filter: blur(5px); }
-        
-        .label-text { font-size: 1.2rem; font-weight: bold; color: var(--neon-green); text-transform: uppercase; }
-        .confidence-bar { height: 4px; background: var(--neon-green); margin-top: 8px; transition: width 0.1s; }
-        
-        .controls { margin-top: 20px; display: flex; gap: 10px; }
-        .btn { background: white; border: none; padding: 12px 24px; border-radius: 50px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn:disabled { opacity: 0.3; cursor: wait; }
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; }
+        .wrapper { position: relative; display: inline-block; }
+        video, canvas { position: absolute; left: 0; top: 0; border-radius: 8px; }
+        #status { margin-bottom: 20px; color: #00ffcc; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h2 style="letter-spacing: 2px;">NEURAL <span style="color: var(--neon-green);">SCANNER</span></h2>
-
-    <div class="vision-container">
-        <video id="webcam" autoplay playsinline muted></video>
-        <div class="overlay" id="ui-overlay" style="display: none;">
-            <div id="obj-name" class="label-text">Scanning...</div>
-            <div id="obj-conf" style="font-size: 0.8rem; color: #aaa;">Confidence: 0%</div>
-            <div id="bar" class="confidence-bar" style="width: 0%"></div>
-        </div>
-    </div>
-
-    <div class="controls">
-        <button id="startBtn" class="btn" onclick="initDetection()" disabled>Loading AI Engine...</button>
-    </div>
-
-<script>
-    const video = document.getElementById('webcam');
-    const objName = document.getElementById('obj-name');
-    const objConf = document.getElementById('obj-conf');
-    const bar = document.getElementById('bar');
-    const overlay = document.getElementById('ui-overlay');
+    <h1>Real-Time Object Detection</h1>
+    <p id="status">Loading Model...</p>
     
-    let model;
+    <div class="wrapper">
+        <video id="webcam" autoplay playsinline muted width="640" height="480"></video>
+        <canvas id="overlay" width="640" height="480"></canvas>
+    </div>
 
-    // 1. Initialize Webcam & Model
-    async function initDetection() {
-        const startBtn = document.getElementById('startBtn');
-        startBtn.style.display = 'none';
-        overlay.style.display = 'block';
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('overlay');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        let model;
 
-        // Start classification loop
-        predictFrame();
-    }
-
-    // Load Model on Start
-    (async () => {
-        model = await mobilenet.load();
-        
-        // Request Webcam
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user" }, 
-            audio: false 
-        });
-        video.srcObject = stream;
-        
-        video.onloadeddata = () => {
-            const btn = document.getElementById('startBtn');
-            btn.innerText = "Start Live Tracking";
-            btn.disabled = false;
-        };
-    })();
-
-    // 2. Real-time Prediction Loop
-    async function predictFrame() {
-        // Classify the current video frame
-        const predictions = await model.classify(video);
-        
-        if (predictions.length > 0) {
-            const topResult = predictions[0];
-            const percentage = (topResult.probability * 100).toFixed(0);
-            
-            // Update UI
-            objName.innerText = topResult.className.split(',')[0];
-            objConf.innerText = `Match: ${percentage}%`;
-            bar.style.width = `${percentage}%`;
+        async function setupWebcam() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+            return new Promise(resolve => video.onloadedmetadata = resolve);
         }
 
-        // Use requestAnimationFrame for smooth 60fps-like feel
-        window.requestAnimationFrame(predictFrame);
-    }
-</script>
+        async function detectFrame() {
+            // 1. Detect objects in the current video frame
+            const predictions = await model.detect(video);
+            
+            // 2. Clear the previous drawings
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 3. Draw new bounding boxes
+            predictions.forEach(prediction => {
+                const [x, y, width, height] = prediction.bbox;
+                
+                // Draw the box
+                ctx.strokeStyle = "#00FF00";
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, width, height);
+
+                // Draw the label background
+                ctx.fillStyle = "#00FF00";
+                const textWidth = ctx.measureText(prediction.class).width;
+                ctx.fillRect(x, y, textWidth + 10, 20);
+
+                // Draw the text
+                ctx.fillStyle = "#000000";
+                ctx.fillText(
+                    `${prediction.class} (${Math.round(prediction.score * 100)}%)`, 
+                    x + 5, y + 15
+                );
+            });
+
+            // 4. Repeat for the next frame
+            requestAnimationFrame(detectFrame);
+        }
+
+        async function main() {
+            model = await cocoSsd.load();
+            status.innerText = "Model Loaded. Starting Webcam...";
+            await setupWebcam();
+            status.innerText = "Detecting...";
+            detectFrame();
+        }
+
+        main();
+    </script>
 </body>
 </html>

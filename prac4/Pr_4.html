@@ -2,102 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Deep Learning Lab: MNIST CNN</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MobileNet Browser Classifier</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    
     <style>
-        body { font-family: 'Consolas', monospace; background: #121212; color: #00ff41; padding: 30px; line-height: 1.6; }
-        .console { border: 1px solid #333; padding: 20px; background: #000; border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,65,0.1); max-width: 600px; }
-        .epoch-line { border-left: 2px solid #00ff41; padding-left: 10px; margin: 5px 0; font-size: 0.9rem; }
-        .header { color: #fff; border-bottom: 1px solid #333; margin-bottom: 15px; padding-bottom: 10px; }
-        .loader { animation: blink 1s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background: #f4f4f9; }
+        #image-container { margin: 20px 0; border: 2px solid #ddd; padding: 10px; background: white; border-radius: 8px; }
+        img { max-width: 300px; display: block; }
+        .result-item { list-style: none; margin: 10px 0; padding: 10px; background: #e0f7fa; border-radius: 4px; border-left: 5px solid #00acc1; }
+        #status { font-weight: bold; color: #555; }
     </style>
 </head>
 <body>
 
-<div class="console">
-    <div class="header">
-        [SYSTEM] CNN ARCHITECTURE INITIALIZED<br>
-        [TASK] MNIST HANDWRITTEN DIGIT TRAINING
+    <h2>MobileNet Image Classification</h2>
+    <p id="status">Status: Loading Model...</p>
+
+    <input type="file" id="file-upload" accept="image/*" disabled>
+    
+    <div id="image-container">
+        <img id="img" crossorigin="anonymous" src="https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg" />
     </div>
-    <div id="display-log">
-        <span class="loader">Waiting for engine...</span>
-    </div>
-</div>
 
-<script>
-    const logger = document.getElementById("display-log");
+    <div id="predictions"></div>
 
-    const print = (msg, isHeader = false) => {
-        const div = document.createElement("div");
-        div.className = "epoch-line";
-        div.innerHTML = isHeader ? `<b style="color:white">${msg}</b>` : msg;
-        logger.appendChild(div);
-    };
+    <script>
+        const img = document.getElementById('img');
+        const status = document.getElementById('status');
+        const predictionsDiv = document.getElementById('predictions');
+        const fileUpload = document.getElementById('file-upload');
+        let model;
 
-    // 1. Data Generator (Creating dummy/synthetic MNIST shape for flow)
-    const prepareData = () => {
-        print("Normalizing tensors [Shape: 28x28x1]...");
-        const trainX = tf.randomNormal([500, 28, 28, 1]);
-        const trainY = tf.oneHot(tf.cast(tf.randomUniform([500], 0, 10), 'int32'), 10);
-        const testX = tf.randomNormal([100, 28, 28, 1]);
-        const testY = tf.oneHot(tf.cast(tf.randomUniform([100], 0, 10), 'int32'), 10);
-        return {trainX, trainY, testX, testY};
-    };
+        // Initialize and Load Model
+        async function init() {
+            model = await mobilenet.load();
+            status.innerText = "Status: Model Ready! Upload an image or use the default.";
+            fileUpload.disabled = false;
+            classifyImage();
+        }
 
-    // 2. Network Construction
-    const assembleModel = () => {
-        const network = tf.sequential();
-        
-        // Feature Extraction
-        network.add(tf.layers.conv2d({
-            inputShape: [28, 28, 1],
-            filters: 16, // Changed from 8
-            kernelSize: 3,
-            activation: 'relu'
-        }));
-        network.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+        // The Core Classification Logic
+        async function classifyImage() {
+            predictionsDiv.innerHTML = "Classifying...";
+            const results = await model.classify(img);
+            
+            predictionsDiv.innerHTML = "";
+            results.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "result-item";
+                div.innerHTML = `<strong>${p.className}</strong>: ${(p.probability * 100).toFixed(2)}%`;
+                predictionsDiv.appendChild(div);
+            });
+        }
 
-        // Flatten & Classification
-        network.add(tf.layers.flatten());
-        network.add(tf.layers.dense({ units: 64, activation: 'relu' })); // Changed from 32
-        network.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+        // Handle File Uploads
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        network.compile({
-            optimizer: tf.train.adam(0.001),
-            loss: 'categoricalCrossentropy',
-            metrics: ['accuracy']
-        });
-        return network;
-    };
-
-    // 3. Execution Pipeline
-    async function runLabSession() {
-        logger.innerHTML = ""; // Clear loader
-        const data = prepareData();
-        const model = assembleModel();
-
-        print("Starting 5-Epoch Cycle...", true);
-
-        await model.fit(data.trainX, data.trainY, {
-            epochs: 5,
-            validationData: [data.testX, data.testY],
-            callbacks: {
-                onEpochEnd: (epoch, logs) => {
-                    print(`Step ${epoch + 1}: Loss = ${logs.loss.toFixed(3)} | Acc = ${logs.acc.toFixed(3)}`);
-                }
-            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                img.src = event.target.result;
+                // Wait for the image to load in the DOM before classifying
+                img.onload = () => classifyImage();
+            };
+            reader.readAsDataURL(file);
         });
 
-        const evaluation = model.evaluate(data.testX, data.testY);
-        const finalAccuracy = (await evaluation[1].data())[0];
-        
-        print("<br>TRAINING SUMMARY:", true);
-        print(`Final Metric (Validation): ${(finalAccuracy * 100).toFixed(2)}%`);
-    }
-
-    // Delay start for "loading" effect
-    setTimeout(runLabSession, 1500);
-</script>
+        init();
+    </script>
 </body>
 </html>
