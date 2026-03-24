@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browser ML Pipeline — Iris Classifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f12;
+      --surface: #161a20;
+      --surface2: #1e242d;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.13);
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --accent: #3b82f6;
+      --accent2: #60a5fa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --teal: #2dd4bf;
+      --font: 'Syne', system-ui, sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .page { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+    /* Header */
+    .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+    .header-left p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .status-badge {
+      padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 500;
+      border: 1px solid; flex-shrink: 0; margin-top: 4px;
+      font-family: var(--mono);
+    }
+    .badge-idle   { background: rgba(107,114,128,0.15); border-color: rgba(107,114,128,0.3); color: #9ca3af; }
+    .badge-train  { background: rgba(59,130,246,0.15);  border-color: rgba(59,130,246,0.4);  color: #60a5fa; }
+    .badge-done   { background: rgba(52,211,153,0.12);  border-color: rgba(52,211,153,0.35); color: #34d399; }
+
+    /* Arch strip */
+    .arch-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      flex-wrap: wrap;
+    }
+    .layer-block { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .layer-nodes { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .node {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: rgba(59,130,246,0.25); border: 1.5px solid #3b82f6;
+    }
+    .node.out { background: rgba(52,211,153,0.25); border-color: #34d399; }
+    .layer-lbl { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+    .arr { color: var(--muted); font-size: 14px; }
+
+    /* Phase cards */
+    .phase-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color 0.2s;
+    }
+    .card.active { border-color: rgba(59,130,246,0.5); }
+
+    .card-phase { display: flex; align-items: center; gap: 6px; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.active { background: #3b82f6; box-shadow: 0 0 6px #3b82f640; }
+    .dot.done   { background: #34d399; }
+    .phase-num { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.08em; }
+
+    .card-title { font-size: 15px; font-weight: 600; }
+    .card-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* Progress */
+    .progress-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+    .progress-fill  { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.25s; }
+
+    /* Metrics row */
+    .metrics { display: flex; gap: 8px; }
+    .metric {
+      flex: 1; background: var(--surface2); border-radius: 8px; padding: 8px 10px; text-align: center;
+    }
+    .metric-val { font-size: 17px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+    .metric-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Buttons */
+    .btn {
+      width: 100%; padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      font-family: var(--font); cursor: pointer; transition: all 0.15s;
+      border: 1px solid var(--border2); background: transparent; color: var(--text);
+    }
+    .btn:hover:not(:disabled) { background: var(--surface2); border-color: rgba(255,255,255,0.2); }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-blue  { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.5); color: #60a5fa; }
+    .btn-blue:hover:not(:disabled) { background: rgba(59,130,246,0.28); }
+    .btn-green { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.4); color: #34d399; }
+    .btn-green:hover:not(:disabled) { background: rgba(52,211,153,0.2); }
+
+    /* Log box */
+    .logbox {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+      min-height: 44px; max-height: 70px; overflow-y: auto; line-height: 1.6;
+    }
+    .log-ok   { color: #34d399; }
+    .log-info { color: #60a5fa; }
+    .log-warn { color: #fbbf24; }
+
+    /* Predict panel */
+    .predict-panel {
+      background: var(--surface);
+      border: 1px solid rgba(59,130,246,0.4);
+      border-radius: 14px; padding: 20px;
+      display: none; flex-direction: column; gap: 16px;
+    }
+    .predict-header { display: flex; align-items: center; justify-content: space-between; }
+    .predict-title { font-size: 15px; font-weight: 600; }
+    .predict-sub { font-size: 12px; color: var(--muted); }
+
+    .slider-grid { display: grid; gap: 10px; }
+    .slider-row { display: grid; grid-template-columns: 130px 1fr 44px; align-items: center; gap: 12px; }
+    .slider-row label { font-size: 12px; color: var(--muted); }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px; outline: none; cursor: pointer;
+      background: linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--pct, 50%), rgba(255,255,255,0.1) var(--pct, 50%));
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: #3b82f6; border: 2px solid #0d0f12; cursor: pointer;
+    }
+    .slider-val { font-size: 12px; font-family: var(--mono); font-weight: 500; text-align: right; color: var(--text); }
+
+    /* Result bars */
+    .result-bars { display: flex; flex-direction: column; gap: 10px; }
+    .result-item { display: flex; flex-direction: column; gap: 4px; }
+    .result-name { font-size: 12px; font-weight: 500; }
+    .result-name.s { color: #34d399; }
+    .result-name.v { color: #60a5fa; }
+    .result-name.g { color: #fbbf24; }
+    .result-track {
+      height: 26px; background: var(--surface2); border-radius: 6px; overflow: hidden; position: relative;
+    }
+    .result-fill {
+      height: 100%; border-radius: 6px; width: 0%;
+      transition: width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s;
+    }
+    .result-pct {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; font-family: var(--mono); font-weight: 500; color: var(--text);
+    }
+
+    .predicted-label {
+      padding: 10px 14px; background: var(--surface2); border-radius: 8px;
+      font-size: 13px; font-family: var(--mono);
+      border-left: 3px solid #34d399; color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .phase-grid { grid-template-columns: 1fr; }
+      .slider-row { grid-template-columns: 100px 1fr 40px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Browser ML Pipeline</h1>
+      <p>Train → Save → Reload → Predict &nbsp;·&nbsp; TensorFlow.js + IndexedDB</p>
+    </div>
+    <span class="status-badge badge-idle" id="global-status">idle</span>
+  </div>
+
+  <!-- Architecture viz -->
+  <div class="arch-strip">
+    <div class="layer-block">
+      <div class="layer-nodes" id="inp-nodes"></div>
+      <div class="layer-lbl">input (4)</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="layer-block">
+      <div class="layer-nodes" id="h1-nodes"></div>
+      <div class="layer-lbl">dense 16 · relu</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="layer-block">
+      <div class="layer-nodes" id="h2-nodes"></div>
+      <div class="layer-lbl">dense 8 · relu</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="layer-block">
+      <div class="layer-nodes" id="out-nodes"></div>
+      <div class="layer-lbl">softmax (3)</div>
+    </div>
+  </div>
+
+  <!-- Three phase cards -->
+  <div class="phase-grid">
+    <!-- Phase 1: Train -->
+    <div class="card active" id="card-train">
+      <div class="card-phase"><span class="dot active" id="dot-train"></span><span class="phase-num">PHASE 01</span></div>
+      <div class="card-title">Train model</div>
+      <div class="card-sub">Iris dataset · 150 samples · 50 epochs</div>
+      <div class="progress-track"><div class="progress-fill" id="train-progress"></div></div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="epoch-val">—</div><div class="metric-lbl">epoch</div></div>
+        <div class="metric"><div class="metric-val" id="loss-val">—</div><div class="metric-lbl">loss</div></div>
+        <div class="metric"><div class="metric-val" id="acc-val">—</div><div class="metric-lbl">accuracy</div></div>
+      </div>
+      <button class="btn btn-blue" id="btn-train" onclick="trainModel()">Train</button>
+      <div class="logbox" id="log-train"><span>Ready to train.</span></div>
+    </div>
+
+    <!-- Phase 2: Save/Load -->
+    <div class="card" id="card-save">
+      <div class="card-phase"><span class="dot" id="dot-save"></span><span class="phase-num">PHASE 02</span></div>
+      <div class="card-title">Save &amp; reload</div>
+      <div class="card-sub">Persist weights to IndexedDB</div>
+      <button class="btn" id="btn-save" onclick="saveModel()" disabled>Save to IndexedDB</button>
+      <button class="btn btn-green" id="btn-load" onclick="loadModel()" disabled>Load from IndexedDB</button>
+      <div class="logbox" id="log-save"><span>Train first.</span></div>
+    </div>
+
+    <!-- Phase 3: Predict -->
+    <div class="card" id="card-predict">
+      <div class="card-phase"><span class="dot" id="dot-predict"></span><span class="phase-num">PHASE 03</span></div>
+      <div class="card-title">Predict</div>
+      <div class="card-sub">Live inference from loaded model</div>
+      <div class="logbox" id="log-predict"><span>Waiting for model.</span></div>
+    </div>
+  </div>
+
+  <!-- Predict Panel -->
+  <div class="predict-panel" id="predict-panel">
+    <div class="predict-header">
+      <div>
+        <div class="predict-title">Live prediction — Iris classifier</div>
+        <div class="predict-sub">Adjust features, probabilities update in real time</div>
+      </div>
+    </div>
+
+    <div class="slider-grid">
+      <div class="slider-row">
+        <label>Sepal length (cm)</label>
+        <input type="range" min="4.3" max="7.9" step="0.1" value="5.1" id="sl" oninput="syncSlider(this,'sl-v'); runPredict()">
+        <span class="slider-val" id="sl-v">5.1</span>
+      </div>
+      <div class="slider-row">
+        <label>Sepal width (cm)</label>
+        <input type="range" min="2.0" max="4.4" step="0.1" value="3.5" id="sw" oninput="syncSlider(this,'sw-v'); runPredict()">
+        <span class="slider-val" id="sw-v">3.5</span>
+      </div>
+      <div class="slider-row">
+        <label>Petal length (cm)</label>
+        <input type="range" min="1.0" max="6.9" step="0.1" value="1.4" id="pl" oninput="syncSlider(this,'pl-v'); runPredict()">
+        <span class="slider-val" id="pl-v">1.4</span>
+      </div>
+      <div class="slider-row">
+        <label>Petal width (cm)</label>
+        <input type="range" min="0.1" max="2.5" step="0.1" value="0.2" id="pw" oninput="syncSlider(this,'pw-v'); runPredict()">
+        <span class="slider-val" id="pw-v">0.2</span>
+      </div>
+    </div>
+
+    <div class="result-bars">
+      <div class="result-item">
+        <div class="result-name s">Iris Setosa</div>
+        <div class="result-track">
+          <div class="result-fill" id="bar-0" style="background:rgba(52,211,153,0.5);"></div>
+          <span class="result-pct" id="pct-0">0%</span>
+        </div>
+      </div>
+      <div class="result-item">
+        <div class="result-name v">Iris Versicolor</div>
+        <div class="result-track">
+          <div class="result-fill" id="bar-1" style="background:rgba(96,165,250,0.5);"></div>
+          <span class="result-pct" id="pct-1">0%</span>
+        </div>
+      </div>
+      <div class="result-item">
+        <div class="result-name g">Iris Virginica</div>
+        <div class="result-track">
+          <div class="result-fill" id="bar-2" style="background:rgba(251,191,36,0.5);"></div>
+          <span class="result-pct" id="pct-2">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="predicted-label" id="predicted-label">Prediction: —</div>
+  </div>
+
+</div>
+
+<script>
+// ── Build arch nodes ──
+function buildNodes(id, n, isOut) {
+  const el = document.getElementById(id);
+  const show = Math.min(n, 6);
+  for (let i = 0; i < show; i++) {
+    const d = document.createElement('div');
+    d.className = 'node' + (isOut ? ' out' : '');
+    el.appendChild(d);
+  }
+  if (n > show) {
+    const d = document.createElement('div');
+    d.style.cssText = 'font-size:10px;color:#6b7280;font-family:var(--mono)';
+    d.textContent = '···';
+    el.appendChild(d);
+  }
+}
+buildNodes('inp-nodes', 4, false);
+buildNodes('h1-nodes', 8, false);
+buildNodes('h2-nodes', 6, false);
+buildNodes('out-nodes', 3, true);
+
+// ── Slider gradient sync ──
+function syncSlider(input, valId) {
+  const min = parseFloat(input.min), max = parseFloat(input.max), val = parseFloat(input.value);
+  const pct = ((val - min) / (max - min)) * 100;
+  input.style.setProperty('--pct', pct + '%');
+  document.getElementById(valId).textContent = val.toFixed(1);
+}
+['sl','sw','pl','pw'].forEach(id => {
+  const el = document.getElementById(id);
+  syncSlider(el, id+'-v');
+});
+
+// ── Iris dataset (150 samples) ──
+const IRIS = [
+[5.1,3.5,1.4,0.2,0],[4.9,3.0,1.4,0.2,0],[4.7,3.2,1.3,0.2,0],[4.6,3.1,1.5,0.2,0],[5.0,3.6,1.4,0.2,0],
+[5.4,3.9,1.7,0.4,0],[4.6,3.4,1.4,0.3,0],[5.0,3.4,1.5,0.2,0],[4.4,2.9,1.4,0.2,0],[4.9,3.1,1.5,0.1,0],
+[5.4,3.7,1.5,0.2,0],[4.8,3.4,1.6,0.2,0],[4.8,3.0,1.4,0.1,0],[4.3,3.0,1.1,0.1,0],[5.8,4.0,1.2,0.2,0],
+[5.7,4.4,1.5,0.4,0],[5.4,3.9,1.3,0.4,0],[5.1,3.5,1.4,0.3,0],[5.7,3.8,1.7,0.3,0],[5.1,3.8,1.5,0.3,0],
+[5.4,3.4,1.7,0.2,0],[5.1,3.7,1.5,0.4,0],[4.6,3.6,1.0,0.2,0],[5.1,3.3,1.7,0.5,0],[4.8,3.4,1.9,0.2,0],
+[5.0,3.0,1.6,0.2,0],[5.0,3.4,1.6,0.4,0],[5.2,3.5,1.5,0.2,0],[5.2,3.4,1.4,0.2,0],[4.7,3.2,1.6,0.2,0],
+[4.8,3.1,1.6,0.2,0],[5.4,3.4,1.5,0.4,0],[5.2,4.1,1.5,0.1,0],[5.5,4.2,1.4,0.2,0],[4.9,3.1,1.5,0.2,0],
+[5.0,3.2,1.2,0.2,0],[5.5,3.5,1.3,0.2,0],[4.9,3.6,1.4,0.1,0],[4.4,3.0,1.3,0.2,0],[5.1,3.4,1.5,0.2,0],
+[5.0,3.5,1.3,0.3,0],[4.5,2.3,1.3,0.3,0],[4.4,3.2,1.3,0.2,0],[5.0,3.5,1.6,0.6,0],[5.1,3.8,1.9,0.4,0],
+[4.8,3.0,1.4,0.3,0],[5.1,3.8,1.6,0.2,0],[4.6,3.2,1.4,0.2,0],[5.3,3.7,1.5,0.2,0],[5.0,3.3,1.4,0.2,0],
+[7.0,3.2,4.7,1.4,1],[6.4,3.2,4.5,1.5,1],[6.9,3.1,4.9,1.5,1],[5.5,2.3,4.0,1.3,1],[6.5,2.8,4.6,1.5,1],
+[5.7,2.8,4.5,1.3,1],[6.3,3.3,4.7,1.6,1],[4.9,2.4,3.3,1.0,1],[6.6,2.9,4.6,1.3,1],[5.2,2.7,3.9,1.4,1],
+[5.0,2.0,3.5,1.0,1],[5.9,3.0,4.2,1.5,1],[6.0,2.2,4.0,1.0,1],[6.1,2.9,4.7,1.4,1],[5.6,2.9,3.6,1.3,1],
+[6.7,3.1,4.4,1.4,1],[5.6,3.0,4.5,1.5,1],[5.8,2.7,4.1,1.0,1],[6.2,2.2,4.5,1.5,1],[5.6,2.5,3.9,1.1,1],
+[5.9,3.2,4.8,1.8,1],[6.1,2.8,4.0,1.3,1],[6.3,2.5,4.9,1.5,1],[6.1,2.8,4.7,1.2,1],[6.4,2.9,4.3,1.3,1],
+[6.6,3.0,4.4,1.4,1],[6.8,2.8,4.8,1.4,1],[6.7,3.0,5.0,1.7,1],[6.0,2.9,4.5,1.5,1],[5.7,2.6,3.5,1.0,1],
+[5.5,2.4,3.8,1.1,1],[5.5,2.4,3.7,1.0,1],[5.8,2.7,3.9,1.2,1],[6.0,2.7,5.1,1.6,1],[5.4,3.0,4.5,1.5,1],
+[6.0,3.4,4.5,1.6,1],[6.7,3.1,4.7,1.5,1],[6.3,2.3,4.4,1.3,1],[5.6,3.0,4.1,1.3,1],[5.5,2.5,4.0,1.3,1],
+[5.5,2.6,4.4,1.2,1],[6.1,3.0,4.6,1.4,1],[5.8,2.6,4.0,1.2,1],[5.0,2.3,3.3,1.0,1],[5.6,2.7,4.2,1.3,1],
+[5.7,3.0,4.2,1.2,1],[5.7,2.9,4.2,1.3,1],[6.2,2.9,4.3,1.3,1],[5.1,2.5,3.0,1.1,1],[5.7,2.8,4.1,1.3,1],
+[6.3,3.3,6.0,2.5,2],[5.8,2.7,5.1,1.9,2],[7.1,3.0,5.9,2.1,2],[6.3,2.9,5.6,1.8,2],[6.5,3.0,5.8,2.2,2],
+[7.6,3.0,6.6,2.1,2],[4.9,2.5,4.5,1.7,2],[7.3,2.9,6.3,1.8,2],[6.7,2.5,5.8,1.8,2],[7.2,3.6,6.1,2.5,2],
+[6.5,3.2,5.1,2.0,2],[6.4,2.7,5.3,1.9,2],[6.8,3.0,5.5,2.1,2],[5.7,2.5,5.0,2.0,2],[5.8,2.8,5.1,2.4,2],
+[6.4,3.2,5.3,2.3,2],[6.5,3.0,5.5,1.8,2],[7.7,3.8,6.7,2.2,2],[7.7,2.6,6.9,2.3,2],[6.0,2.2,5.0,1.5,2],
+[6.9,3.2,5.7,2.3,2],[5.6,2.8,4.9,2.0,2],[7.7,2.8,6.7,2.0,2],[6.3,2.7,4.9,1.8,2],[6.7,3.3,5.7,2.1,2],
+[7.2,3.2,6.0,1.8,2],[6.2,2.8,4.8,1.8,2],[6.1,3.0,4.9,1.8,2],[6.4,2.8,5.6,2.1,2],[7.2,3.0,5.8,1.6,2],
+[7.4,2.8,6.1,1.9,2],[7.9,3.8,6.4,2.0,2],[6.4,2.8,5.6,2.2,2],[6.3,2.8,5.1,1.5,2],[6.1,2.6,5.6,1.4,2],
+[7.7,3.0,6.1,2.3,2],[6.3,3.4,5.6,2.4,2],[6.4,3.1,5.5,1.8,2],[6.0,3.0,4.8,1.8,2],[6.9,3.1,5.4,2.1,2],
+[6.7,3.1,5.6,2.4,2],[6.9,3.1,5.1,2.3,2],[5.8,2.7,5.1,1.9,2],[6.8,3.2,5.9,2.3,2],[6.7,3.3,5.7,2.5,2],
+[6.7,3.0,5.2,2.3,2],[6.3,2.5,5.0,1.9,2],[6.5,3.0,5.2,2.0,2],[6.2,3.4,5.4,2.3,2],[5.9,3.0,5.1,1.8,2]
+];
+
+const CLASS_NAMES = ['Iris Setosa','Iris Versicolor','Iris Virginica'];
+
+let trainedModel = null;
+let loadedModel  = null;
+
+function log(id, msg, cls) {
+  const box = document.getElementById(id);
+  box.innerHTML = '';
+  const s = document.createElement('span');
+  if (cls) s.className = cls;
+  s.textContent = msg;
+  box.appendChild(s);
+}
+
+function setStatus(text, cls) {
+  const el = document.getElementById('global-status');
+  el.textContent = text;
+  el.className = 'status-badge ' + cls;
+}
+
+// ── Train ──
+async function trainModel() {
+  document.getElementById('btn-train').disabled = true;
+  setStatus('training...', 'badge-train');
+  log('log-train', 'Preparing data...', 'log-info');
+  await new Promise(r => setTimeout(r, 50));
+
+  const xs  = IRIS.map(r => r.slice(0, 4));
+  const ys  = IRIS.map(r => r[4]);
+
+  const xT  = tf.tensor2d(xs);
+  const yT  = tf.oneHot(tf.tensor1d(ys, 'int32'), 3);
+  const mn  = xT.min(0);
+  const mx  = xT.max(0);
+  const xN  = xT.sub(mn).div(mx.sub(mn));
+
+  const model = tf.sequential({ layers: [
+    tf.layers.dense({ inputShape: [4], units: 16, activation: 'relu' }),
+    tf.layers.dense({ units: 8, activation: 'relu' }),
+    tf.layers.dense({ units: 3, activation: 'softmax' })
+  ]});
+
+  model.compile({ optimizer: tf.train.adam(0.01), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+
+  const EPOCHS = 50;
+  await model.fit(xN, yT, {
+    epochs: EPOCHS,
+    shuffle: true,
+    validationSplit: 0.15,
+    callbacks: {
+      onEpochEnd: async (epoch, logs) => {
+        const pct = Math.round(((epoch+1)/EPOCHS)*100);
+        document.getElementById('train-progress').style.width = pct + '%';
+        document.getElementById('epoch-val').textContent = epoch + 1;
+        document.getElementById('loss-val').textContent  = logs.loss.toFixed(3);
+        document.getElementById('acc-val').textContent   = Math.round(logs.acc * 100) + '%';
+        if ((epoch + 1) % 10 === 0)
+          log('log-train', `Epoch ${epoch+1}/${EPOCHS} · loss=${logs.loss.toFixed(3)} · acc=${Math.round(logs.acc*100)}%`, 'log-info');
+        await tf.nextFrame();
+      }
+    }
+  });
+
+  trainedModel = model;
+  trainedModel._normMin = await mn.array();
+  trainedModel._normMax = await mx.array();
+
+  mn.dispose(); mx.dispose(); xT.dispose(); xN.dispose(); yT.dispose();
+
+  log('log-train', 'Training complete!', 'log-ok');
+  setStatus('trained', 'badge-done');
+  document.getElementById('dot-train').className = 'dot done';
+  document.getElementById('card-save').classList.add('active');
+  document.getElementById('dot-save').className = 'dot active';
+  document.getElementById('btn-save').disabled = false;
+  document.getElementById('btn-load').disabled = false;
+}
+
+// ── Save ──
+async function saveModel() {
+  if (!trainedModel) return;
+  log('log-save', 'Saving to IndexedDB...', 'log-info');
+  try {
+    await trainedModel.save('indexeddb://iris-classifier');
+    localStorage.setItem('iris-norm-min', JSON.stringify(trainedModel._normMin));
+    localStorage.setItem('iris-norm-max', JSON.stringify(trainedModel._normMax));
+    log('log-save', 'Saved! Key: iris-classifier', 'log-ok');
+    document.getElementById('dot-save').className = 'dot done';
+  } catch(e) {
+    log('log-save', 'Save failed: ' + e.message, 'log-warn');
+  }
+}
+
+// ── Load ──
+async function loadModel() {
+  log('log-save', 'Loading from IndexedDB...', 'log-info');
+  try {
+    loadedModel = await tf.loadLayersModel('indexeddb://iris-classifier');
+    loadedModel._normMin = JSON.parse(localStorage.getItem('iris-norm-min'));
+    loadedModel._normMax = JSON.parse(localStorage.getItem('iris-norm-max'));
+    log('log-save', 'Model loaded!', 'log-ok');
+    onModelReady();
+  } catch(e) {
+    if (trainedModel) {
+      loadedModel = trainedModel;
+      log('log-save', 'Using in-memory model (save first for persistence)', 'log-warn');
+      onModelReady();
+    } else {
+      log('log-save', 'No saved model found. Train & save first.', 'log-warn');
+    }
+  }
+}
+
+function onModelReady() {
+  document.getElementById('dot-save').className    = 'dot done';
+  document.getElementById('card-predict').classList.add('active');
+  document.getElementById('dot-predict').className = 'dot active';
+  document.getElementById('predict-panel').style.display = 'flex';
+  log('log-predict', 'Model ready — move sliders to predict!', 'log-ok');
+  setStatus('ready', 'badge-done');
+  runPredict();
+}
+
+// ── Predict ──
+function runPredict() {
+  if (!loadedModel) return;
+  const vals = [
+    parseFloat(document.getElementById('sl').value),
+    parseFloat(document.getElementById('sw').value),
+    parseFloat(document.getElementById('pl').value),
+    parseFloat(document.getElementById('pw').value)
+  ];
+  const mn  = loadedModel._normMin;
+  const mx  = loadedModel._normMax;
+  const norm = vals.map((v, i) => (v - mn[i]) / (mx[i] - mn[i]));
+  const inp  = tf.tensor2d([norm]);
+  const pred = loadedModel.predict(inp);
+  const probs = pred.dataSync();
+  inp.dispose(); pred.dispose();
+
+  let best = 0;
+  for (let i = 1; i < 3; i++) if (probs[i] > probs[best]) best = i;
+
+  for (let i = 0; i < 3; i++) {
+    const pct = Math.round(probs[i] * 100);
+    document.getElementById('bar-' + i).style.width   = pct + '%';
+    document.getElementById('bar-' + i).style.opacity = 0.4 + probs[i] * 0.6;
+    document.getElementById('pct-' + i).textContent   = pct + '%';
+  }
+  document.getElementById('predicted-label').textContent =
+    'Prediction: ' + CLASS_NAMES[best] + '  (' + Math.round(probs[best]*100) + '% confidence)';
+}
+</script>
+</body>
+</html>
