@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rock Paper Scissors — AI Hand Detection</title>
+
+<!-- MediaPipe Hands (same engine as your Python mediapipe) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #030712;
+  --panel: #0d1117;
+  --border: #1f2937;
+  --accent: #00f5d4;
+  --accent2: #f72585;
+  --accent3: #fee440;
+  --text: #e2e8f0;
+  --dim: #4b5563;
+  --win: #00f5d4;
+  --lose: #f72585;
+  --draw: #fee440;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,245,212,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,212,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none; z-index:0;
+}
+h1 {
+  font-family:'Orbitron',monospace; font-weight:900;
+  font-size: clamp(1.1rem,3vw,1.8rem);
+  letter-spacing:0.15em; color:var(--accent);
+  text-shadow:0 0 20px rgba(0,245,212,0.5);
+  padding:16px 0 4px; position:relative; z-index:1;
+}
+.subtitle { font-size:0.65rem; color:var(--dim); letter-spacing:0.2em; margin-bottom:12px; position:relative; z-index:1; }
+
+.scoreboard { display:flex; gap:12px; margin-bottom:12px; position:relative; z-index:1; }
+.score-card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 24px; text-align:center; min-width:90px; }
+.score-card .label { font-size:0.58rem; letter-spacing:0.2em; color:var(--dim); margin-bottom:2px; }
+.score-card .value { font-family:'Orbitron',monospace; font-size:1.8rem; font-weight:700; }
+.score-card.player .value { color:var(--accent); }
+.score-card.ai .value     { color:var(--accent2); }
+.score-card.draws .value  { color:var(--accent3); }
+
+.arena { display:flex; gap:14px; align-items:flex-start; position:relative; z-index:1; flex-wrap:wrap; justify-content:center; }
+
+.cam-panel {
+  position:relative; border:1px solid var(--border);
+  border-radius:10px; overflow:hidden; background:#000;
+  box-shadow:0 0 30px rgba(0,245,212,0.08); flex-shrink:0;
+}
+#input_video {
+  display:block; width:500px; max-width:92vw;
+  transform:scaleX(-1); /* mirror like Python cv2.flip */
+}
+#output_canvas {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  transform:scaleX(-1); /* mirror canvas to match video */
+  pointer-events:none;
+}
+.cam-hud {
+  position:absolute; top:0; left:0; right:0;
+  padding:8px 12px;
+  background:linear-gradient(180deg,rgba(3,7,18,0.85) 0%,transparent 100%);
+  display:flex; justify-content:space-between; align-items:center;
+  pointer-events:none;
+}
+.badge { font-size:0.62rem; letter-spacing:0.13em; padding:3px 8px; border-radius:3px; border:1px solid; }
+.badge.live    { border-color:var(--accent2); color:var(--accent2); }
+.badge.gesture { border-color:var(--accent);  color:var(--accent); }
+.cam-bottom {
+  position:absolute; bottom:0; left:0; right:0; padding:7px 12px;
+  background:linear-gradient(0deg,rgba(3,7,18,0.9) 0%,transparent 100%);
+  font-size:0.62rem; color:var(--dim); letter-spacing:0.1em; text-align:center;
+  pointer-events:none;
+}
+.scanline {
+  position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+  pointer-events:none;
+}
+
+.side-panel { display:flex; flex-direction:column; gap:10px; width:210px; }
+.info-box { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; }
+.info-box .box-title { font-size:0.58rem; letter-spacing:0.2em; color:var(--dim); margin-bottom:8px; text-transform:uppercase; }
+
+.move-display { display:flex; flex-direction:column; gap:8px; }
+.move-row { display:flex; align-items:center; justify-content:space-between; }
+.move-label { font-size:0.62rem; color:var(--dim); width:36px; }
+.move-emoji { font-size:2rem; line-height:1; transition:transform 0.25s ease; }
+.move-name { font-family:'Orbitron',monospace; font-size:0.65rem; font-weight:700; letter-spacing:0.08em; width:68px; text-align:right; }
+.move-name.player { color:var(--accent); }
+.move-name.ai     { color:var(--accent2); }
+
+.result-box { text-align:center; padding:14px 12px; }
+.result-label { font-family:'Orbitron',monospace; font-size:1.3rem; font-weight:900; letter-spacing:0.1em; transition:all 0.3s; }
+.result-label.win  { color:var(--win);  text-shadow:0 0 14px rgba(0,245,212,0.6); }
+.result-label.lose { color:var(--lose); text-shadow:0 0 14px rgba(247,37,133,0.6); }
+.result-label.draw { color:var(--draw); text-shadow:0 0 12px rgba(254,228,64,0.5); }
+.result-label.idle { color:var(--dim);  font-size:0.72rem; letter-spacing:0.2em; }
+
+.timer-wrap { margin-top:8px; }
+.timer-bar-bg { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.timer-bar-fill { height:100%; background:var(--accent3); border-radius:2px; width:0%; box-shadow:0 0 8px rgba(254,228,64,0.6); }
+.timer-text { font-size:0.62rem; color:var(--accent3); text-align:center; margin-top:4px; letter-spacing:0.13em; }
+
+/* Finger debug dots */
+.finger-debug { display:flex; justify-content:center; gap:6px; margin-top:6px; }
+.finger-pip {
+  width:24px; height:24px; border-radius:50%;
+  border:1.5px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.48rem; color:var(--dim);
+  transition:all 0.1s;
+}
+.finger-pip.up { background:var(--accent); border-color:var(--accent); color:#000; box-shadow:0 0 8px rgba(0,245,212,0.5); }
+
+/* Stable progress bar */
+.stable-row { margin-top:8px; }
+.stable-bar-bg { height:3px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:4px; }
+.stable-bar-fill { height:100%; background:var(--accent); border-radius:2px; width:0%; transition:width 0.1s; }
+.stable-label { font-size:0.55rem; color:var(--dim); display:flex; justify-content:space-between; }
+
+.gesture-guide { display:flex; flex-direction:column; gap:5px; }
+.gesture-row { display:flex; align-items:center; gap:7px; font-size:0.62rem; color:var(--dim); }
+.gesture-row span:first-child { font-size:1.1rem; }
+.gesture-row strong { color:var(--text); font-family:'Orbitron',monospace; font-size:0.58rem; }
+
+.history { max-height:85px; overflow-y:auto; font-size:0.58rem; color:var(--dim); display:flex; flex-direction:column; gap:3px; }
+.history::-webkit-scrollbar { width:3px; }
+.history::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.hist-entry { display:flex; justify-content:space-between; }
+.hist-entry .hw { color:var(--win); }
+.hist-entry .hl { color:var(--lose); }
+.hist-entry .hd { color:var(--draw); }
+
+.status-bar { font-size:0.62rem; color:var(--dim); letter-spacing:0.08em; display:flex; align-items:center; gap:6px; }
+.status-dot { width:6px; height:6px; border-radius:50%; background:var(--dim); flex-shrink:0; }
+.status-dot.active { background:var(--accent); box-shadow:0 0 6px var(--accent); animation:blink 1.2s infinite; }
+.status-dot.warn   { background:var(--accent3); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+#loading {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:100; gap:14px;
+}
+#loading h2 { font-family:'Orbitron',monospace; color:var(--accent); font-size:1rem; letter-spacing:0.2em; }
+.loader-bar { width:200px; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.loader-fill { height:100%; background:var(--accent); box-shadow:0 0 10px var(--accent); width:0%; transition:width 0.3s ease; }
+.load-msg { font-size:0.63rem; color:var(--dim); letter-spacing:0.15em; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <h2>INITIALIZING</h2>
+  <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+  <div class="load-msg" id="load-msg">LOADING MEDIAPIPE HANDS...</div>
+</div>
+
+<h1>ROCK · PAPER · SCISSORS</h1>
+<div class="subtitle">MEDIAPIPE HANDS · REAL-TIME GESTURE DETECTION</div>
+
+<div class="scoreboard">
+  <div class="score-card player"><div class="label">PLAYER</div><div class="value" id="player-score">0</div></div>
+  <div class="score-card draws"> <div class="label">DRAWS</div> <div class="value" id="draw-score">0</div></div>
+  <div class="score-card ai">    <div class="label">AI</div>    <div class="value" id="ai-score">0</div></div>
+</div>
+
+<div class="arena">
+  <div class="cam-panel">
+    <video id="input_video" autoplay playsinline muted></video>
+    <canvas id="output_canvas"></canvas>
+    <div class="scanline"></div>
+    <div class="cam-hud">
+      <div class="badge live">● LIVE</div>
+      <div class="badge gesture" id="gesture-badge">LOADING...</div>
+    </div>
+    <div class="cam-bottom">SHOW YOUR HAND · HOLD STEADY FOR A MOMENT</div>
+  </div>
+
+  <div class="side-panel">
+
+    <div class="info-box">
+      <div class="box-title">CURRENT ROUND</div>
+      <div class="move-display">
+        <div class="move-row">
+          <div class="move-label">YOU</div>
+          <div class="move-emoji" id="player-emoji">🤜</div>
+          <div class="move-name player" id="player-move">---</div>
+        </div>
+        <div class="move-row">
+          <div class="move-label">AI</div>
+          <div class="move-emoji" id="ai-emoji">🤖</div>
+          <div class="move-name ai" id="ai-move">---</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box result-box">
+      <div class="box-title">RESULT</div>
+      <div class="result-label idle" id="result-text">WAITING...</div>
+      <div class="timer-wrap" id="timer-wrap" style="display:none">
+        <div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill"></div></div>
+        <div class="timer-text" id="timer-text">NEXT IN 3s</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <div class="box-title">DETECTION DEBUG</div>
+      <div class="finger-debug">
+        <div class="finger-pip" id="f-idx" title="Index">IDX</div>
+        <div class="finger-pip" id="f-mid" title="Middle">MID</div>
+        <div class="finger-pip" id="f-rng" title="Ring">RNG</div>
+        <div class="finger-pip" id="f-pnk" title="Pinky">PNK</div>
+      </div>
+      <div class="stable-row">
+        <div class="stable-label">
+          <span>LOCK PROGRESS</span>
+          <span id="stable-count">0/8</span>
+        </div>
+        <div class="stable-bar-bg"><div class="stable-bar-fill" id="stable-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <div class="box-title">GESTURE GUIDE</div>
+      <div class="gesture-guide">
+        <div class="gesture-row"><span>✊</span><strong>ROCK</strong> — all fingers curled</div>
+        <div class="gesture-row"><span>🖐</span><strong>PAPER</strong> — all fingers open</div>
+        <div class="gesture-row"><span>✌️</span><strong>SCISSORS</strong> — index + middle up</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <div class="box-title">ROUND LOG</div>
+      <div class="history" id="history"></div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">INITIALIZING...</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const ROUND_DELAY          = 3000;   // ms before next round (mirrors your round_delay=3)
+const STABLE_FRAMES_NEEDED = 8;      // frames same gesture must hold before triggering
+const CHOICES              = ["ROCK","PAPER","SCISSORS"];
+const EMOJI_MAP            = { ROCK:"✊", PAPER:"🖐", SCISSORS:"✌️" };
+
+// MediaPipe landmark indices — same as Python mediapipe
+// Finger tips:  index=8, middle=12, ring=16, pinky=20
+// Finger PIPs:  index=6, middle=10, ring=14, pinky=18
+const FINGER_TIPS = [8, 12, 16, 20];
+const FINGER_PIPS = [6, 10, 14, 18];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let playerScore = 0, aiScore = 0, drawScore = 0, roundCount = 0;
+let gameState   = "IDLE";   // IDLE | LOCKED | COOLDOWN
+let cooldownEnd = 0;
+let stableChoice = null, stableFrames = 0;
+
+// ─── DOM REFS ─────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const videoEl      = $("input_video");
+const canvasEl     = $("output_canvas");
+const ctx          = canvasEl.getContext("2d");
+const loadingEl    = $("loading");
+const loaderFill   = $("loader-fill");
+const loadMsg      = $("load-msg");
+const gestureBadge = $("gesture-badge");
+const pScoreEl     = $("player-score");
+const aScoreEl     = $("ai-score");
+const dScoreEl     = $("draw-score");
+const pEmojiEl     = $("player-emoji");
+const aEmojiEl     = $("ai-emoji");
+const pMoveEl      = $("player-move");
+const aMoveEl      = $("ai-move");
+const resultEl     = $("result-text");
+const timerWrap    = $("timer-wrap");
+const timerFill    = $("timer-fill");
+const timerText    = $("timer-text");
+const historyEl    = $("history");
+const statusDot    = $("status-dot");
+const statusText   = $("status-text");
+const stableFill   = $("stable-fill");
+const stableCount  = $("stable-count");
+const fingerEls    = [$("f-idx"), $("f-mid"), $("f-rng"), $("f-pnk")];
+
+// ─── FINGER UP DETECTION ──────────────────────────────────────────────────────
+// Mirrors your Python fingers_up() exactly:
+//   tip.y < pip.y  →  finger is extended (y=0 is top of frame)
+// landmarks are normalized [0..1] from MediaPipe
+function fingersUp(landmarks) {
+  return FINGER_TIPS.map((tip, i) =>
+    landmarks[tip].y < landmarks[FINGER_PIPS[i]].y
+  );
+}
+
+// ─── GESTURE CLASSIFICATION ───────────────────────────────────────────────────
+// Mirrors your Python get_player_choice() exactly
+function getPlayerChoice(fingers) {
+  const [idx, mid, rng, pnk] = fingers;
+  if (!idx && !mid && !rng && !pnk) return "ROCK";
+  if ( idx &&  mid &&  rng &&  pnk) return "PAPER";
+  if ( idx &&  mid && !rng && !pnk) return "SCISSORS";
+  return null;
+}
+
+// ─── WINNER LOGIC ────────────────────────────────────────────────────────────
+// Mirrors your Python get_winner() exactly
+function getWinner(player, ai) {
+  if (player === ai) return "DRAW";
+  if (
+    (player === "ROCK"     && ai === "SCISSORS") ||
+    (player === "SCISSORS" && ai === "PAPER")    ||
+    (player === "PAPER"    && ai === "ROCK")
+  ) return "PLAYER";
+  return "AI";
+}
+
+// ─── PLAY ROUND ───────────────────────────────────────────────────────────────
+function playRound(playerChoice) {
+  const aiChoice = CHOICES[Math.floor(Math.random() * 3)];
+  const winner   = getWinner(playerChoice, aiChoice);
+  roundCount++;
+
+  pEmojiEl.textContent = EMOJI_MAP[playerChoice];
+  aEmojiEl.textContent = EMOJI_MAP[aiChoice];
+  pMoveEl.textContent  = playerChoice;
+  aMoveEl.textContent  = aiChoice;
+
+  [pEmojiEl, aEmojiEl].forEach(el => {
+    el.style.transform = "scale(1.5)";
+    setTimeout(() => el.style.transform = "scale(1)", 300);
+  });
+
+  resultEl.className = "result-label";
+  if (winner === "PLAYER") {
+    playerScore++; resultEl.textContent = "YOU WIN! 🎉";
+    resultEl.classList.add("win"); pScoreEl.textContent = playerScore;
+  } else if (winner === "AI") {
+    aiScore++; resultEl.textContent = "AI WINS!";
+    resultEl.classList.add("lose"); aScoreEl.textContent = aiScore;
+  } else {
+    drawScore++; resultEl.textContent = "DRAW!";
+    resultEl.classList.add("draw"); dScoreEl.textContent = drawScore;
+  }
+
+  const entry = document.createElement("div");
+  entry.className = "hist-entry";
+  const cls   = winner === "PLAYER" ? "hw" : winner === "AI" ? "hl" : "hd";
+  const label = winner === "PLAYER" ? "WIN" : winner === "AI" ? "LOSE" : "DRAW";
+  entry.innerHTML = `<span>#${roundCount} ${playerChoice} vs ${aiChoice}</span><span class="${cls}">${label}</span>`;
+  historyEl.prepend(entry);
+
+  gameState   = "COOLDOWN";
+  cooldownEnd = Date.now() + ROUND_DELAY;
+  timerWrap.style.display = "block";
+  stableChoice = null; stableFrames = 0;
+  updateStableBar(0);
+}
+
+function resetRound() {
+  gameState = "IDLE";
+  timerWrap.style.display = "none";
+  resultEl.className = "result-label idle";
+  resultEl.textContent = "WAITING...";
+  pMoveEl.textContent = "---"; aMoveEl.textContent = "---";
+  pEmojiEl.textContent = "🤜"; aEmojiEl.textContent = "🤖";
+  stableChoice = null; stableFrames = 0;
+  updateStableBar(0);
+}
+
+function tickCooldown() {
+  const remaining = Math.max(0, cooldownEnd - Date.now());
+  const pct = ((ROUND_DELAY - remaining) / ROUND_DELAY) * 100;
+  timerFill.style.width = pct + "%";
+  timerText.textContent = `NEXT IN ${Math.ceil(remaining / 1000)}s`;
+  if (remaining <= 0) resetRound();
+}
+
+function updateStableBar(frames) {
+  const pct = (frames / STABLE_FRAMES_NEEDED) * 100;
+  stableFill.style.width = Math.min(pct, 100) + "%";
+  stableCount.textContent = `${Math.min(frames, STABLE_FRAMES_NEEDED)}/${STABLE_FRAMES_NEEDED}`;
+}
+
+function updateFingerDebug(fingers) {
+  fingerEls.forEach((el, i) => {
+    el.className = "finger-pip" + (fingers[i] ? " up" : "");
+  });
+}
+
+// ─── MEDIAPIPE RESULTS CALLBACK ───────────────────────────────────────────────
+function onResults(results) {
+  // Keep canvas in sync with actual video dimensions
+  if (videoEl.videoWidth > 0) {
+    canvasEl.width  = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+  }
+
+  ctx.save();
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+  // Tick cooldown timer every frame
+  if (gameState === "COOLDOWN") tickCooldown();
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+
+    // Draw hand landmarks using MediaPipe drawing utils
+    // (mirrors mp_draw.draw_landmarks from Python)
+    drawConnectors(ctx, landmarks, HAND_CONNECTIONS,
+      { color: "rgba(0,245,212,0.75)", lineWidth: 2 });
+    drawLandmarks(ctx, landmarks,
+      { color: "#ffffff", fillColor: "rgba(0,245,212,0.3)", lineWidth: 1, radius: 4 });
+
+    // Classify gesture (same logic as Python)
+    const fingers = fingersUp(landmarks);
+    const choice  = getPlayerChoice(fingers);
+    updateFingerDebug(fingers);
+
+    if (choice) {
+      // Require STABLE_FRAMES_NEEDED consecutive identical frames
+      // to avoid accidental triggers (improvement over original)
+      if (choice === stableChoice) {
+        stableFrames++;
+      } else {
+        stableChoice = choice;
+        stableFrames = 1;
+      }
+      updateStableBar(stableFrames);
+
+      gestureBadge.textContent = choice;
+      statusDot.className = "status-dot active";
+      statusText.textContent = stableFrames < STABLE_FRAMES_NEEDED
+        ? `HOLD ${choice}...`
+        : `LOCKED: ${choice}`;
+
+      if (gameState === "IDLE" && stableFrames >= STABLE_FRAMES_NEEDED) {
+        gameState = "LOCKED";
+        playRound(choice);
+      }
+    } else {
+      stableChoice = null; stableFrames = 0;
+      updateStableBar(0);
+      gestureBadge.textContent = "UNRECOGNIZED";
+      statusDot.className = "status-dot warn";
+      statusText.textContent = "TRY: ROCK / PAPER / SCISSORS";
+    }
+
+  } else {
+    // No hand in frame
+    updateFingerDebug([false,false,false,false]);
+    updateStableBar(0);
+    stableChoice = null; stableFrames = 0;
+    gestureBadge.textContent = "NO HAND";
+    statusDot.className = "status-dot";
+    statusText.textContent = "SHOW YOUR HAND TO CAMERA";
+    if (gameState === "LOCKED") gameState = "IDLE";
+  }
+
+  ctx.restore();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  setProgress(10, "REQUESTING CAMERA ACCESS...");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width:{ ideal:640 }, height:{ ideal:480 }, facingMode:"user" }
+    });
+    videoEl.srcObject = stream;
+    await new Promise(r => { videoEl.onloadedmetadata = r; });
+    videoEl.play();
+  } catch(e) {
+    loadMsg.textContent = "CAMERA ERROR: " + e.message;
+    return;
+  }
+
+  setProgress(40, "INITIALIZING MEDIAPIPE HANDS...");
+
+  // Wait for MediaPipe Hands to be available from CDN
+  let tries = 0;
+  while (typeof Hands === "undefined" && tries < 60) {
+    await new Promise(r => setTimeout(r, 100));
+    tries++;
+  }
+  if (typeof Hands === "undefined") {
+    loadMsg.textContent = "ERROR: MediaPipe failed to load. Check internet connection.";
+    return;
+  }
+
+  setProgress(65, "LOADING HAND MODEL WEIGHTS...");
+
+  const handsModel = new Hands({
+    locateFile: file =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
+  });
+
+  // Same parameters as your Python code:
+  // max_num_hands=1, min_detection_confidence=0.7, min_tracking_confidence=0.7
+  handsModel.setOptions({
+    maxNumHands:            1,
+    modelComplexity:        1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence:  0.7
+  });
+
+  handsModel.onResults(onResults);
+
+  setProgress(85, "STARTING DETECTION LOOP...");
+
+  // MediaPipe Camera utility handles the frame loop
+  const camera = new Camera(videoEl, {
+    onFrame: async () => {
+      await handsModel.send({ image: videoEl });
+    },
+    width: 640,
+    height: 480
+  });
+
+  await camera.start();
+
+  setProgress(100, "READY — SHOW YOUR HAND!");
+  await new Promise(r => setTimeout(r, 400));
+
+  loadingEl.style.transition = "opacity 0.4s";
+  loadingEl.style.opacity = "0";
+  setTimeout(() => loadingEl.style.display = "none", 400);
+
+  statusDot.className = "status-dot active";
+  statusText.textContent = "SHOW YOUR HAND TO PLAY";
+  gestureBadge.textContent = "READY";
+}
+
+function setProgress(pct, msg) {
+  loaderFill.style.width = pct + "%";
+  loadMsg.textContent = msg;
+}
+
+init();
+</script>
+</body>
+</html>
