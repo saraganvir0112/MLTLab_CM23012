@@ -1,0 +1,500 @@
+
+<style>
+:root { --accent: #3B8BD4; --accent-light: #E6F1FB; --green: #639922; --green-light: #EAF3DE; --amber: #BA7517; --amber-light: #FAEEDA; --coral: #993C1D; --coral-light: #FAECE7; --teal: #0F6E56; --teal-light: #E1F5EE; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-size: 14px; line-height: 1.6; color: var(--color-text-primary); }
+h2 { font-size: 18px; font-weight: 500; margin-bottom: 8px; }
+h3 { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.section { margin-bottom: 28px; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 12px; padding: 16px 20px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 6px; }
+.badge-frozen { background: var(--color-background-secondary); color: var(--color-text-secondary); border: 0.5px solid var(--color-border-secondary); }
+.badge-trainable { background: var(--green-light); color: var(--green); }
+.badge-new { background: var(--accent-light); color: var(--accent); }
+.arch-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.arch-row:last-child { border-bottom: none; }
+.arch-block { flex: 1; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.arch-label { font-size: 12px; color: var(--color-text-secondary); min-width: 120px; }
+.arch-size { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+.frozen { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); }
+.trainable { background: var(--green-light); border: 0.5px solid #C0DD97; }
+.new-layer { background: var(--accent-light); border: 0.5px solid #B5D4F4; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.stat-card { background: var(--color-background-secondary); border-radius: 8px; padding: 12px; text-align: center; }
+.stat-val { font-size: 22px; font-weight: 500; }
+.stat-lbl { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.code-block { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: 8px; padding: 14px 16px; font-family: var(--font-mono); font-size: 12px; line-height: 1.8; overflow-x: auto; color: var(--color-text-primary); }
+.kw { color: var(--accent); font-weight: 500; }
+.str { color: var(--green); }
+.cmt { color: var(--color-text-tertiary); }
+.num { color: var(--amber); }
+.fn { color: #993C1D; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tab { padding: 7px 14px; font-size: 13px; cursor: pointer; border-radius: 6px 6px 0 0; color: var(--color-text-secondary); border: none; background: transparent; }
+.tab.active { color: var(--accent); background: var(--accent-light); font-weight: 500; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.pipeline-step { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.pipeline-step:last-child { border-bottom: none; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+.step-num.blue { background: var(--accent-light); color: var(--accent); }
+.step-num.green { background: var(--green-light); color: var(--green); }
+.step-num.amber { background: var(--amber-light); color: var(--amber); }
+.step-num.teal { background: var(--teal-light); color: var(--teal); }
+.step-num.coral { background: var(--coral-light); color: var(--coral); }
+.progress-bar { height: 6px; background: var(--color-background-secondary); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.sim-btn { padding: 8px 18px; border-radius: 8px; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); font-size: 13px; cursor: pointer; color: var(--color-text-primary); font-weight: 500; transition: background 0.15s; }
+.sim-btn:hover { background: var(--color-background-secondary); }
+.sim-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sim-btn.primary:hover { opacity: 0.9; }
+.fruit-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 4px; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); cursor: pointer; transition: all 0.15s; }
+.fruit-chip:hover { background: var(--accent-light); border-color: #B5D4F4; color: var(--accent); }
+.fruit-chip.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.epoch-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+.epoch-bar { flex: 1; height: 4px; background: var(--color-background-secondary); border-radius: 2px; overflow: hidden; }
+.epoch-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+.comparison-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 13px; }
+.comparison-row:last-child { border-bottom: none; }
+.compare-bar-wrap { flex: 1; }
+.compare-bar { height: 20px; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 500; transition: width 0.6s ease; }
+.tip-box { background: var(--amber-light); border: 0.5px solid #FAC775; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--amber); margin-top: 10px; }
+.fine-tune-section { margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--color-border-tertiary); }
+</style>
+
+<div style="padding: 4px 0 20px;">
+
+<!-- Header -->
+<div style="margin-bottom: 24px;">
+  <div style="font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px;">Chapter 8 · Deep Learning</div>
+  <h2 style="font-size: 22px; margin-bottom: 6px;">Transfer Learning with MobileNet</h2>
+  <p style="font-size: 14px; color: var(--color-text-secondary);">Retrain a pre-trained MobileNetV2 for custom image categories — e.g. classifying fruits — using frozen feature extraction + a new classification head.</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('concept')">Concept</button>
+  <button class="tab" onclick="switchTab('architecture')">Architecture</button>
+  <button class="tab" onclick="switchTab('code')">Code</button>
+  <button class="tab" onclick="switchTab('training')">Training Sim</button>
+  <button class="tab" onclick="switchTab('compare')">From Scratch vs TL</button>
+</div>
+
+<!-- CONCEPT TAB -->
+<div id="tab-concept" class="tab-content active section">
+  <div class="card" style="margin-bottom: 14px;">
+    <h3 style="margin-bottom: 10px;">What is Transfer Learning?</h3>
+    <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 14px;">Instead of training a neural network from random weights, you start from a model already trained on a massive dataset (ImageNet, 1.2M images, 1000 classes). The early layers have already learned universal visual features — edges, textures, shapes. You only need to teach the final layers your specific task.</p>
+    <div style="display: flex; align-items: stretch; gap: 0; background: var(--color-background-secondary); border-radius: 10px; overflow: hidden;">
+      <div style="flex: 1; padding: 14px; border-right: 0.5px solid var(--color-border-tertiary);">
+        <div style="font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Pre-trained on ImageNet</div>
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 4px;">MobileNetV2</div>
+        <div style="font-size: 12px; color: var(--color-text-secondary);">Knows: dogs, cats, cars, trees, faces, textures, edges, patterns…</div>
+      </div>
+      <div style="display: flex; align-items: center; padding: 0 12px; color: var(--color-text-tertiary); font-size: 18px;">→</div>
+      <div style="flex: 1; padding: 14px; border-right: 0.5px solid var(--color-border-tertiary);">
+        <div style="font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Freeze base + add head</div>
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 4px;">Feature Extractor</div>
+        <div style="font-size: 12px; color: var(--color-text-secondary);">Weights locked — extract 1280-dim feature vectors from any image</div>
+      </div>
+      <div style="display: flex; align-items: center; padding: 0 12px; color: var(--color-text-tertiary); font-size: 18px;">→</div>
+      <div style="flex: 1; padding: 14px;">
+        <div style="font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Train new layers</div>
+        <div style="font-size: 13px; font-weight: 500; margin-bottom: 4px;">Fruit Classifier</div>
+        <div style="font-size: 12px; color: var(--color-text-secondary);">Learns: apple, banana, mango, grape, orange…</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-bottom: 10px;">Pipeline Overview</h3>
+  <div class="card">
+    <div class="pipeline-step">
+      <div class="step-num blue">1</div>
+      <div><div style="font-weight: 500; font-size: 13px;">Load MobileNetV2 (no top)</div><div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 2px;">Download pre-trained weights from ImageNet. Exclude the final Dense(1000) classification layer using <code style="font-size: 11px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px;">include_top=False</code>.</div></div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num coral">2</div>
+      <div><div style="font-weight: 500; font-size: 13px;">Freeze base layers</div><div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 2px;">Set <code style="font-size: 11px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px;">base_model.trainable = False</code>. All 154 layers keep their learned weights — no gradients flow through them.</div></div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num green">3</div>
+      <div><div style="font-weight: 500; font-size: 13px;">Add custom classification head</div><div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 2px;">GlobalAveragePooling2D → Dense(128, relu) → Dropout(0.3) → Dense(N, softmax). Only these layers train initially.</div></div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num amber">4</div>
+      <div><div style="font-weight: 500; font-size: 13px;">Train Phase 1 — head only</div><div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 2px;">Train for ~10 epochs with learning rate 1e-3. Quick convergence since only a few thousand parameters update.</div></div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num teal">5</div>
+      <div><div style="font-weight: 500; font-size: 13px;">Fine-tune Phase 2 (optional)</div><div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 2px;">Unfreeze top layers of MobileNet (e.g. last 30), reduce learning rate to 1e-5 and train further. Adapts high-level features to your domain.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE TAB -->
+<div id="tab-architecture" class="tab-content section">
+  <div class="card" style="margin-bottom: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3>MobileNetV2 + Custom Head</h3>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <span class="badge badge-frozen">Frozen (base)</span>
+        <span class="badge badge-trainable">Fine-tunable</span>
+        <span class="badge badge-new">New (trainable)</span>
+      </div>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block frozen"><div class="arch-label" style="font-weight: 500; color: var(--color-text-primary);">Input layer</div><div class="arch-size">224 × 224 × 3</div></div>
+      <span class="badge badge-frozen">frozen</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block frozen"><div class="arch-label" style="font-weight: 500;">Conv2D + BN + ReLU6</div><div class="arch-size">112 × 112 × 32</div></div>
+      <span class="badge badge-frozen">frozen</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block frozen"><div class="arch-label" style="font-weight: 500;">Inverted Residuals × 16 blocks</div><div class="arch-size">Bottleneck with depthwise convolutions</div></div>
+      <span class="badge badge-frozen">frozen</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block frozen"><div class="arch-label" style="font-weight: 500;">Conv2D 1×1 + BN + ReLU6</div><div class="arch-size">7 × 7 × 1280</div></div>
+      <span class="badge badge-frozen">frozen</span>
+    </div>
+    <div class="arch-row" id="fine-tune-row" style="opacity: 0.4; transition: opacity 0.3s;">
+      <div class="arch-block trainable"><div class="arch-label" style="font-weight: 500; color: #3B6D11;">Top 30 layers (fine-tune)</div><div class="arch-size" style="color: #3B6D11;">Unfreeze in Phase 2</div></div>
+      <span class="badge badge-trainable">fine-tune</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block new-layer"><div class="arch-label" style="font-weight: 500; color: #185FA5;">GlobalAveragePooling2D</div><div class="arch-size" style="color: #185FA5;">1280-dim feature vector</div></div>
+      <span class="badge badge-new">new</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block new-layer"><div class="arch-label" style="font-weight: 500; color: #185FA5;">Dense(128) + Dropout(0.3)</div><div class="arch-size" style="color: #185FA5;">128 neurons, ReLU activation</div></div>
+      <span class="badge badge-new">new</span>
+    </div>
+    <div class="arch-row">
+      <div class="arch-block new-layer"><div class="arch-label" style="font-weight: 500; color: #185FA5;">Dense(N) — output</div><div class="arch-size" style="color: #185FA5;">Softmax — N = your fruit classes</div></div>
+      <span class="badge badge-new">new</span>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="stat-card">
+      <div class="stat-val">3.4M</div>
+      <div class="stat-lbl">Total parameters</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">~165K</div>
+      <div class="stat-lbl">Trainable (Phase 1)</div>
+    </div>
+  </div>
+
+  <div class="tip-box" style="margin-top: 14px;">
+    <strong>Why MobileNetV2?</strong> Depthwise separable convolutions make it 8–9× cheaper than VGG16 with competitive accuracy. Ideal for fine-tuning on small datasets or deploying on mobile.
+  </div>
+
+  <div class="fine-tune-section">
+    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+      <input type="checkbox" id="ft-toggle" onchange="toggleFineTune(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
+      <span>Enable Phase 2: unfreeze top 30 layers for fine-tuning</span>
+    </label>
+    <div id="ft-info" style="display: none; margin-top: 10px; font-size: 12px; color: var(--color-text-secondary); background: var(--green-light); border-radius: 6px; padding: 8px 12px; border: 0.5px solid #C0DD97; color: var(--green);">
+      Top 30 layers unlocked. Trainable params increase to ~1.2M. Use a much smaller learning rate (1e-5) to avoid destroying learned features.
+    </div>
+  </div>
+</div>
+
+<!-- CODE TAB -->
+<div id="tab-code" class="tab-content section">
+  <div style="margin-bottom: 14px;">
+    <h3>Step 1: Load & freeze base model</h3>
+    <div class="code-block">
+<span class="kw">import</span> tensorflow <span class="kw">as</span> tf
+<span class="kw">from</span> tensorflow.keras <span class="kw">import</span> layers, Model
+
+<span class="cmt"># Load MobileNetV2 without top classification layer</span>
+base_model = tf.keras.applications.<span class="fn">MobileNetV2</span>(
+    input_shape=(<span class="num">224</span>, <span class="num">224</span>, <span class="num">3</span>),
+    include_top=<span class="kw">False</span>,
+    weights=<span class="str">'imagenet'</span>
+)
+
+<span class="cmt"># Freeze all base layers</span>
+base_model.trainable = <span class="kw">False</span>
+<span class="fn">print</span>(f<span class="str">"Trainable layers: {len(base_model.trainable_variables)}"</span>)  <span class="cmt"># → 0</span>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 14px;">
+    <h3>Step 2: Build the custom head</h3>
+    <div class="code-block">
+NUM_CLASSES = <span class="num">5</span>  <span class="cmt"># apple, banana, grape, mango, orange</span>
+
+inputs  = tf.keras.<span class="fn">Input</span>(shape=(<span class="num">224</span>, <span class="num">224</span>, <span class="num">3</span>))
+x       = base_model(inputs, training=<span class="kw">False</span>)  <span class="cmt"># frozen: always inference mode</span>
+x       = layers.<span class="fn">GlobalAveragePooling2D</span>()(x)
+x       = layers.<span class="fn">Dense</span>(<span class="num">128</span>, activation=<span class="str">'relu'</span>)(x)
+x       = layers.<span class="fn">Dropout</span>(<span class="num">0.3</span>)(x)
+outputs = layers.<span class="fn">Dense</span>(NUM_CLASSES, activation=<span class="str">'softmax'</span>)(x)
+
+model = <span class="fn">Model</span>(inputs, outputs)
+    </div>
+  </div>
+
+  <div style="margin-bottom: 14px;">
+    <h3>Step 3: Data preprocessing</h3>
+    <div class="code-block">
+<span class="cmt"># MobileNetV2 expects pixels in [-1, 1]</span>
+preprocess = tf.keras.applications.mobilenet_v2.<span class="fn">preprocess_input</span>
+
+train_ds = tf.keras.utils.<span class="fn">image_dataset_from_directory</span>(
+    <span class="str">'fruits/train'</span>,
+    image_size=(<span class="num">224</span>, <span class="num">224</span>),
+    batch_size=<span class="num">32</span>
+).<span class="fn">map</span>(<span class="kw">lambda</span> x, y: (preprocess(x), y))
+
+<span class="cmt"># Data augmentation (avoids overfitting on small datasets)</span>
+augment = tf.keras.Sequential([
+    layers.<span class="fn">RandomFlip</span>(<span class="str">'horizontal'</span>),
+    layers.<span class="fn">RandomRotation</span>(<span class="num">0.15</span>),
+    layers.<span class="fn">RandomZoom</span>(<span class="num">0.1</span>),
+])
+    </div>
+  </div>
+
+  <div style="margin-bottom: 14px;">
+    <h3>Step 4: Phase 1 — train head only</h3>
+    <div class="code-block">
+model.<span class="fn">compile</span>(
+    optimizer=tf.keras.optimizers.<span class="fn">Adam</span>(learning_rate=<span class="num">1e-3</span>),
+    loss=<span class="str">'sparse_categorical_crossentropy'</span>,
+    metrics=[<span class="str">'accuracy'</span>]
+)
+
+history1 = model.<span class="fn">fit</span>(train_ds, validation_data=val_ds, epochs=<span class="num">10</span>)
+    </div>
+  </div>
+
+  <div>
+    <h3>Step 5: Phase 2 — fine-tune top layers</h3>
+    <div class="code-block">
+<span class="cmt"># Unfreeze top 30 layers of MobileNet</span>
+base_model.trainable = <span class="kw">True</span>
+<span class="kw">for</span> layer <span class="kw">in</span> base_model.layers[:-<span class="num">30</span>]:
+    layer.trainable = <span class="kw">False</span>
+
+<span class="cmt"># Very small learning rate to avoid catastrophic forgetting</span>
+model.<span class="fn">compile</span>(
+    optimizer=tf.keras.optimizers.<span class="fn">Adam</span>(learning_rate=<span class="num">1e-5</span>),
+    loss=<span class="str">'sparse_categorical_crossentropy'</span>,
+    metrics=[<span class="str">'accuracy'</span>]
+)
+
+history2 = model.<span class="fn">fit</span>(train_ds, validation_data=val_ds, epochs=<span class="num">10</span>)
+model.<span class="fn">save</span>(<span class="str">'fruit_classifier.keras'</span>)
+    </div>
+  </div>
+</div>
+
+<!-- TRAINING SIM TAB -->
+<div id="tab-training" class="tab-content section">
+  <h3 style="margin-bottom: 6px;">Select fruit categories to classify</h3>
+  <p style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px;">Choose 2–6 classes. More classes = more epochs needed.</p>
+  <div id="fruit-picker" style="margin-bottom: 16px;">
+    <span class="fruit-chip selected" onclick="toggleFruit(this,'apple')">🍎 Apple</span>
+    <span class="fruit-chip selected" onclick="toggleFruit(this,'banana')">🍌 Banana</span>
+    <span class="fruit-chip selected" onclick="toggleFruit(this,'grape')">🍇 Grape</span>
+    <span class="fruit-chip" onclick="toggleFruit(this,'mango')">🥭 Mango</span>
+    <span class="fruit-chip" onclick="toggleFruit(this,'orange')">🍊 Orange</span>
+    <span class="fruit-chip" onclick="toggleFruit(this,'strawberry')">🍓 Strawberry</span>
+  </div>
+
+  <div class="card" style="margin-bottom: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>
+        <div style="font-weight: 500; font-size: 13px;" id="phase-label">Phase 1 — Training head only</div>
+        <div style="font-size: 12px; color: var(--color-text-secondary);" id="phase-sub">Epochs: 0 / 10</div>
+      </div>
+      <button class="sim-btn primary" id="train-btn" onclick="startTraining()">Run Training</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="epoch-prog" style="width:0%;background:var(--accent);"></div></div>
+    <div id="epoch-log" style="margin-top: 12px; max-height: 200px; overflow-y: auto;"></div>
+  </div>
+
+  <div class="grid2" style="margin-bottom: 14px;">
+    <div class="stat-card">
+      <div class="stat-val" id="cur-acc" style="color: var(--accent);">—</div>
+      <div class="stat-lbl">Val accuracy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="cur-loss" style="color: var(--coral);">—</div>
+      <div class="stat-lbl">Val loss</div>
+    </div>
+  </div>
+
+  <div id="result-box" style="display: none;" class="card">
+    <h3 style="margin-bottom: 8px;">Inference preview</h3>
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px;">Simulated prediction on a test image:</p>
+    <div id="inference-bars"></div>
+  </div>
+</div>
+
+<!-- COMPARE TAB -->
+<div id="tab-compare" class="tab-content section">
+  <h3 style="margin-bottom: 10px;">Transfer Learning vs Training from Scratch</h3>
+  <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 16px;">Comparison on a small fruit dataset (~500 images per class).</p>
+
+  <div class="card" style="margin-bottom: 14px;">
+    <div style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px; font-weight: 500;">Final val accuracy (10 epochs)</div>
+    <div class="comparison-row">
+      <div style="min-width: 130px; font-size: 13px; font-weight: 500;">Transfer Learning</div>
+      <div class="compare-bar-wrap"><div class="compare-bar" style="width: 91%; background: var(--accent-light); color: var(--accent);">91%</div></div>
+    </div>
+    <div class="comparison-row">
+      <div style="min-width: 130px; font-size: 13px;">From Scratch (CNN)</div>
+      <div class="compare-bar-wrap"><div class="compare-bar" style="width: 61%; background: var(--color-background-secondary); color: var(--color-text-secondary);">61%</div></div>
+    </div>
+    <div class="comparison-row">
+      <div style="min-width: 130px; font-size: 13px;">TL + Fine-tune</div>
+      <div class="compare-bar-wrap"><div class="compare-bar" style="width: 95%; background: var(--green-light); color: var(--green);">95%</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 14px;">
+    <div style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px; font-weight: 500;">Time to 85% accuracy</div>
+    <div class="comparison-row">
+      <div style="min-width: 130px; font-size: 13px; font-weight: 500;">Transfer Learning</div>
+      <div class="compare-bar-wrap"><div class="compare-bar" style="width: 20%; background: var(--accent-light); color: var(--accent);">3 epochs</div></div>
+    </div>
+    <div class="comparison-row">
+      <div style="min-width: 130px; font-size: 13px;">From Scratch (CNN)</div>
+      <div class="compare-bar-wrap"><div class="compare-bar" style="width: 80%; background: var(--color-background-secondary); color: var(--color-text-secondary);">50+ epochs</div></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div style="font-size: 12px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Transfer Learning</div>
+      <div style="font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        ✓ High accuracy on small data<br>
+        ✓ Fast convergence<br>
+        ✓ Less compute needed<br>
+        ✓ Built-in regularization<br>
+        ✗ Domain shift risk<br>
+        ✗ Licensing constraints
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size: 12px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">From Scratch</div>
+      <div style="font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        ✓ Full control<br>
+        ✓ No pretrain bias<br>
+        ✓ Custom architecture<br>
+        ✗ Needs large dataset<br>
+        ✗ Slow convergence<br>
+        ✗ High compute cost
+      </div>
+    </div>
+  </div>
+
+  <div class="tip-box" style="margin-top: 14px;">
+    <strong>Rule of thumb:</strong> Use transfer learning when you have &lt;10K images per class. From scratch only makes sense with 100K+ or highly specialized domains (medical imaging, satellite).
+  </div>
+</div>
+
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tabs = ['concept','architecture','code','training','compare'];
+  const idx = tabs.indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function toggleFineTune(checked) {
+  const row = document.getElementById('fine-tune-row');
+  const info = document.getElementById('ft-info');
+  row.style.opacity = checked ? '1' : '0.4';
+  info.style.display = checked ? 'block' : 'none';
+}
+
+const selectedFruits = new Set(['apple','banana','grape']);
+function toggleFruit(el, name) {
+  if (selectedFruits.has(name)) {
+    if (selectedFruits.size <= 2) return;
+    selectedFruits.delete(name); el.classList.remove('selected');
+  } else {
+    if (selectedFruits.size >= 6) return;
+    selectedFruits.add(name); el.classList.add('selected');
+  }
+}
+
+let training = false;
+let currentEpoch = 0;
+const totalEpochs = 10;
+
+function startTraining() {
+  if (training) return;
+  training = true;
+  currentEpoch = 0;
+  document.getElementById('train-btn').disabled = true;
+  document.getElementById('epoch-log').innerHTML = '';
+  document.getElementById('result-box').style.display = 'none';
+  document.getElementById('cur-acc').textContent = '—';
+  document.getElementById('cur-loss').textContent = '—';
+  runEpoch();
+}
+
+function runEpoch() {
+  if (currentEpoch >= totalEpochs) {
+    finishTraining(); return;
+  }
+  currentEpoch++;
+  const pct = currentEpoch / totalEpochs;
+  const n = selectedFruits.size;
+  const baseAcc = 0.72 + 0.02 * (currentEpoch) - 0.03 * (n - 3) * (n > 3 ? 1 : 0);
+  const acc = Math.min(0.93, baseAcc + (Math.random() - 0.5) * 0.02);
+  const loss = Math.max(0.12, 1.2 * Math.exp(-0.28 * currentEpoch) + (Math.random() - 0.5) * 0.04);
+
+  document.getElementById('epoch-prog').style.width = (pct * 100) + '%';
+  document.getElementById('phase-sub').textContent = `Epochs: ${currentEpoch} / ${totalEpochs}`;
+  document.getElementById('cur-acc').textContent = (acc * 100).toFixed(1) + '%';
+  document.getElementById('cur-loss').textContent = loss.toFixed(3);
+
+  const log = document.getElementById('epoch-log');
+  const row = document.createElement('div');
+  row.className = 'epoch-row';
+  row.innerHTML = `<span style="min-width:70px;color:var(--color-text-secondary);">Epoch ${currentEpoch}/${totalEpochs}</span><div class="epoch-bar"><div class="epoch-fill" style="width:${acc*100}%"></div></div><span style="min-width:48px;text-align:right;font-weight:500;">${(acc*100).toFixed(1)}%</span><span style="min-width:52px;text-align:right;color:var(--color-text-secondary);">loss ${loss.toFixed(3)}</span>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+
+  setTimeout(runEpoch, 320);
+}
+
+function finishTraining() {
+  training = false;
+  document.getElementById('train-btn').disabled = false;
+  document.getElementById('phase-label').textContent = 'Training complete';
+  document.getElementById('result-box').style.display = 'block';
+
+  const fruits = [...selectedFruits];
+  const winner = fruits[Math.floor(Math.random() * fruits.length)];
+  const scores = fruits.map(f => ({ f, s: f === winner ? 0.7 + Math.random() * 0.2 : Math.random() * 0.15 }));
+  const sum = scores.reduce((a,b) => a + b.s, 0);
+  scores.forEach(s => s.s /= sum);
+  scores.sort((a,b) => b.s - a.s);
+
+  const emojis = { apple:'🍎', banana:'🍌', grape:'🍇', mango:'🥭', orange:'🍊', strawberry:'🍓' };
+  document.getElementById('inference-bars').innerHTML = scores.map(({f,s}) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+      <span style="min-width:90px;font-size:13px;">${emojis[f]||'🍑'} ${f}</span>
+      <div style="flex:1;height:16px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden;">
+        <div style="width:${(s*100).toFixed(0)}%;height:100%;background:${s > 0.5 ? 'var(--accent)' : 'var(--color-background-secondary)'};border-radius:4px;background:${s > 0.5 ? '#378ADD' : '#B4B2A9'};"></div>
+      </div>
+      <span style="min-width:40px;text-align:right;font-size:12px;font-weight:${s>0.5?'500':'400'};color:${s>0.5?'var(--accent)':'var(--color-text-secondary)'};">${(s*100).toFixed(1)}%</span>
+    </div>`
+  ).join('');
+}
+</script>
